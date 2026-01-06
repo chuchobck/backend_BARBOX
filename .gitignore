@@ -1,0 +1,46 @@
+# Dependencias
+node_modules/
+
+# Variables de entorno
+.env
+
+# Archivos generados por Prisma
+/generated/prisma
+
+# Archivos temporales y de prueba
+*.log
+*.tmp
+.DS_Store
+Thumbs.db
+
+# Archivos de desarrollo y debug
+debug-*.js
+test-*.js
+check-*.js
+list-*.js
+all-counts.js
+fix-*.js
+get-*.js
+search-*.js
+non-empty.js
+
+# Archivos JSON de prueba/desarrollo
+cats.json
+counts.json
+mapping_data.txt
+
+# Thunder Client collections (opcional)
+thunder-client-*.json
+
+# Backups de configuración
+*.bak
+
+# Archivos de documentación temporal
+CHECKLIST_*.md
+RESUMEN_*.md
+OPTIMIZACIONES_*.md
+
+# Archivos públicos (imágenes) - opcional, descomentar si quieres versionar imágenes
+# public/logos/
+# public/productos/
+# public/Promociones/

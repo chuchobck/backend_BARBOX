@@ -2,8 +2,16 @@
 
 // Lista de orígenes permitidos
 const allowedOrigins = [
+  // Desarrollo local
   "http://localhost:3001",  // BARBOX Frontend (npm start)
-];
+  "http://localhost:5173",  // Vite dev server
+  "http://localhost:5174",  // POS dev
+  // Producción - Agregar tus dominios de Vercel aquí
+  "https://e-commerce-chuchobck.vercel.app",
+  "https://barbox.vercel.app",
+  // Agregar más dominios según necesites
+  process.env.FRONTEND_URL,  // Variable de entorno opcional
+].filter(Boolean);  // Elimina valores undefined/null
 
 // Función para validar origen (permite IPs de red local)
 const validateOrigin = (origin, callback) => {

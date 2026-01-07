@@ -18,37 +18,32 @@ const allowedOrigins = [
   process.env.FRONTEND_URL,  // Variable de entorno opcional
 ].filter(Boolean);  // Elimina valores undefined/null
 
-// Permitir todos los subdominios de vercel.app del proyecto e-commerce
-const isVercelPreview = (origin) => {
-  // Formato: https://e-commerce-<hash>-chuchos-projects-<id>.vercel.app
-  // o: https://e-commerce-<cualquier-cosa>.vercel.app
-  return origin && /^https:\/\/e-commerce-[a-z0-9-]+\.vercel\.app$/.test(origin);
-};
-
 // Función para validar origen (permite IPs de red local)
 const validateOrigin = (origin, callback) => {
-  // Permitir requests sin origin (ej: Postman, mobile apps)
-  if (!origin) {
-    return callback(null, true);
-  }
+  // Permitir requests sin origin (Postman, mobile apps)
+  if (!origin) return callback(null, true);
 
-  // Permitir orígenes en la lista
+  // Permitir dominios explícitos
   if (allowedOrigins.includes(origin)) {
     return callback(null, true);
   }
 
-  // Permitir cualquier preview de Vercel del proyecto e-commerce
-  if (isVercelPreview(origin)) {
+  // ✅ Permitir cualquier subdominio de Vercel
+  if (
+    origin.endsWith(".vercel.app") &&
+    origin.includes("chuchos-projects")
+  ) {
     return callback(null, true);
   }
 
-  // Permitir cualquier IP de red local (192.168.x.x, 10.x.x.x, 172.16-31.x.x)
-  const localNetworkPattern = /^http:\/\/(192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2[0-9]|3[0-1])\.\d+\.\d+)(:\d+)?$/;
+  // Permitir red local
+  const localNetworkPattern =
+    /^http:\/\/(192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2[0-9]|3[0-1])\.\d+\.\d+)(:\d+)?$/;
+
   if (localNetworkPattern.test(origin)) {
     return callback(null, true);
   }
 
-  // Origen no permitido
   callback(new Error(`Origen no permitido por CORS: ${origin}`), false);
 };
 

@@ -18,9 +18,11 @@ const allowedOrigins = [
   process.env.FRONTEND_URL,  // Variable de entorno opcional
 ].filter(Boolean);  // Elimina valores undefined/null
 
-// Permitir todos los subdominios de vercel.app del proyecto
+// Permitir todos los subdominios de vercel.app del proyecto e-commerce
 const isVercelPreview = (origin) => {
-  return origin && origin.match(/^https:\/\/e-commerce.*\.vercel\.app$/);
+  // Formato: https://e-commerce-<hash>-chuchos-projects-<id>.vercel.app
+  // o: https://e-commerce-<cualquier-cosa>.vercel.app
+  return origin && /^https:\/\/e-commerce-[a-z0-9-]+\.vercel\.app$/.test(origin);
 };
 
 // Función para validar origen (permite IPs de red local)

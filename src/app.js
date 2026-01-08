@@ -14,6 +14,9 @@ dotenv.config();
 
 const app = express();
 
+// Confiar en el proxy (necesario en Vercel / entornos detrás de proxy)
+app.set('trust proxy', 1);
+
 // ========== MIDDLEWARE GLOBAL ==========
 
 // 1. Headers de seguridad (Helmet)

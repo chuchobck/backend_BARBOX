@@ -23,7 +23,11 @@ app.set('trust proxy', 1);
 app.use(helmetMiddleware);
 
 // 2. Rate Limiting (200 peticiones/15min)
-app.use(apiLimiter);
+// Limitar SOLO rutas sensibles
+app.use('/api/v1/auth', apiLimiter);
+app.use('/api/v1/pagos', apiLimiter);
+app.use('/api/v1/pedidos', apiLimiter);
+app.use('/api/v1/facturas', apiLimiter);
 
 // 3. CORS configurado para los 3 frontends
 app.use(cors(corsConfig));

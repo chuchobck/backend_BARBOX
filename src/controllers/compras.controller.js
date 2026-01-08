@@ -1,7 +1,7 @@
 // src/controllers/compras.controller.js
 // 🔵 PERSONA 1: Módulo F2 - Gestión de Órdenes de Compra
 
-import prisma from '../config/database.js';
+import prisma from '../lib/prisma.js';
 
 /**
  * GET /api/v1/compras

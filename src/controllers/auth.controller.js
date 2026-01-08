@@ -1,7 +1,7 @@
 // src/controllers/auth.controller.js - Controlador de autenticación
 // 🟡 PERSONA 3: Módulo Auth
 
-import prisma from '../config/database.js';
+import prisma from '../lib/prisma.js';
 import { generarToken } from '../middleware/auth.js';
 import bcrypt from 'bcryptjs';
 

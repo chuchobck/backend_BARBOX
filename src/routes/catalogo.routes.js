@@ -6,7 +6,7 @@ import {
   listarProductos,
   buscarProductos
 } from '../controllers/productos.controller.js';
-import prisma from '../config/database.js';
+import prisma from '../lib/prisma.js';;
 
 const router = Router();
 

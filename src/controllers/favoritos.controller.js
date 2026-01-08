@@ -1,5 +1,5 @@
 // src/controllers/favoritos.controller.js
-import prisma from '../config/database.js';
+import prisma from '../lib/prisma.js';
 
 /**
  * Listar favoritos de un usuario

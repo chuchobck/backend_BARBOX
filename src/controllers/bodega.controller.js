@@ -1,7 +1,7 @@
 // src/controllers/bodega.controller.js
 // 🔵 PERSONA 1: Módulo F3 - Gestión de Bodega (Recepciones)
 
-import prisma from '../config/database.js';
+import prisma from '../lib/prisma.js';
 
 /**
  * GET /api/v1/bodega/recepciones

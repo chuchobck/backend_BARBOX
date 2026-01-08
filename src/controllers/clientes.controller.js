@@ -1,5 +1,5 @@
 //Módulo F4 - Gestión de Clientes
-import prisma from '../config/database.js';
+import prisma from '../lib/prisma.js';
 
 /**
  * GET /api/v1/clientes

@@ -1,7 +1,6 @@
 // src/controllers/proveedores.controller.js
 // 🔵 PERSONA 1: Módulo F1 - Gestión de Proveedores
-
-import prisma from '../config/database.js';
+import prisma from '../lib/prisma.js';
 
 /**
  * GET /api/v1/proveedores

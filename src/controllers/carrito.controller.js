@@ -1,7 +1,7 @@
 // =============================================
 // 🛒 CARRITO CONTROLLER
 // =============================================
-import prisma from '../config/database.js';
+import prisma from '../lib/prisma.js';
 import { Decimal } from '@prisma/client/runtime/library';
 
 /**

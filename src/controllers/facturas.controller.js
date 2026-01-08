@@ -1,5 +1,5 @@
 // 🟢 PERSONA 2 – Módulo F5: Gestión de Facturas
-import prisma from '../config/database.js';
+import prisma from '../lib/prisma.js';
 
 /**
  * F5.4.1 – Consulta general de facturas

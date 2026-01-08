@@ -19,18 +19,20 @@ app.set('trust proxy', 1);
 
 // ========== MIDDLEWARE GLOBAL ==========
 
-// 1. Headers de seguridad (Helmet)
+// 1. CORS - DEBE IR PRIMERO
+app.use(cors(corsConfig));
+
+// 2. Headers de seguridad (Helmet)
 app.use(helmetMiddleware);
 
-// 2. Rate Limiting (200 peticiones/15min)
+// 3. Rate Limiting (200 peticiones/15min)
 // Limitar SOLO rutas sensibles
 app.use('/api/v1/auth', apiLimiter);
 app.use('/api/v1/pagos', apiLimiter);
 app.use('/api/v1/pedidos', apiLimiter);
 app.use('/api/v1/facturas', apiLimiter);
 
-// 3. CORS configurado para los 3 frontends
-app.use(cors(corsConfig));
+
 
 // 4. Parsear JSON
 app.use(express.json());

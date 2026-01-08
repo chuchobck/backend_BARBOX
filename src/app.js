@@ -25,6 +25,9 @@ app.use(apiLimiter);
 // 3. CORS configurado para los 3 frontends
 app.use(cors(corsConfig));
 
+// ✅ Manejar preflight CORS (OPTIONS)
+app.options("*", cors(corsConfig));
+
 // 4. Parsear JSON
 app.use(express.json());
 
@@ -49,17 +52,7 @@ const logRequest = (req, res, next) => {
 
 app.use(logRequest);
 
-// 7. Middleware CORS para archivos estáticos (imágenes)
-app.use((req, res, next) => {
-  if (req.path.match(/\.(jpg|jpeg|png|gif|webp|svg)$/i)) {
-    res.header('Access-Control-Allow-Origin', '*');
-    res.header('Access-Control-Allow-Methods', 'GET');
-    res.header('Cross-Origin-Resource-Policy', 'cross-origin');
-  }
-  next();
-});
-
-// 8. Servir archivos estáticos (imágenes)
+// 7. Servir archivos estáticos (imágenes)
 app.use('/logos', express.static(path.join(process.cwd(), 'public/logos')));
 app.use('/productos', express.static(path.join(process.cwd(), 'public/productos')));
 app.use('/promociones', express.static(path.join(process.cwd(), 'public/promociones')));

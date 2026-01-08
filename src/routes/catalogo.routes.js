@@ -1,5 +1,3 @@
-// src/routes/catalogo.routes.js
-
 import { Router } from 'express';
 import {
   listarCategorias,

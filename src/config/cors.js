@@ -55,19 +55,14 @@ export const corsConfig = {
     'Content-Type',
     'Authorization',
     'X-Correlation-ID',
-    'X-Sistema',
-    'X-Requested-With',
+    'X-Sistema'  // ecommerce, admin, pos
   ],
-  exposedHeaders: [
-    'X-Total-Count',
-    'X-Correlation-ID',
-  ],
+  exposedHeaders: ['X-Total-Count', 'X-Correlation-ID'],
   credentials: true,
-  maxAge: 86400,
+  maxAge: 86400, // 24 horas
   preflightContinue: false,
-  optionsSuccessStatus: 204,
+  optionsSuccessStatus: 204
 };
-
 
 export const CLIENT_ORIGINS = allowedOrigins;
 

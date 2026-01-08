@@ -46,3 +46,4 @@ OPTIMIZACIONES_*.md
 # public/Promociones/
 
 .vercel
+.env*.local

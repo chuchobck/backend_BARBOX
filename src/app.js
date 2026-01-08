@@ -25,9 +25,6 @@ app.use(apiLimiter);
 // 3. CORS configurado para los 3 frontends
 app.use(cors(corsConfig));
 
-// ✅ Manejar preflight CORS (OPTIONS)
-app.options("*", cors(corsConfig));
-
 // 4. Parsear JSON
 app.use(express.json());
 
@@ -61,25 +58,10 @@ app.use('/promociones', express.static(path.join(process.cwd(), 'public/promocio
 
 // Health check
 app.get('/health', (req, res) => {
-  const modules = routes.stack
-    .filter(layer => layer.name === 'router')
-    .map(layer => {
-      return layer.regexp.source
-        .replace('\\/?', '')
-        .replace('(?=\\/|$)', '')
-        .replace('^', '')
-        .replace('\\/', '')
-        .replace(/\\\//g, '/');
-    });
-
   res.json({
     status: 'success',
     message: 'API funcionando correctamente',
-    data: {
-      version: 'v1',
-      timestamp: new Date().toISOString(),
-      modules
-    }
+    timestamp: new Date().toISOString()
   });
 });
 

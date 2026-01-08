@@ -20,19 +20,19 @@ const allowedOrigins = [
 
 // Función para validar origen (permite IPs de red local)
 const validateOrigin = (origin, callback) => {
-  // Permitir requests sin origin (Postman, mobile apps)
+  // Permitir requests sin origin (Postman, mobile apps, server-side)
   if (!origin) return callback(null, true);
 
-  // Permitir dominios explícitos
-  if (allowedOrigins.includes(origin)) {
+  // Permitir localhost
+  if (
+    origin.startsWith("http://localhost") ||
+    origin.startsWith("http://127.0.0.1")
+  ) {
     return callback(null, true);
   }
 
-  // ✅ Permitir cualquier subdominio de Vercel
-  if (
-    origin.endsWith(".vercel.app") &&
-    origin.includes("chuchos-projects")
-  ) {
+  // ✅ Permitir cualquier frontend en Vercel
+  if (origin.endsWith(".vercel.app")) {
     return callback(null, true);
   }
 
@@ -44,6 +44,7 @@ const validateOrigin = (origin, callback) => {
     return callback(null, true);
   }
 
+  // Bloquear todo lo demás
   callback(new Error(`Origen no permitido por CORS: ${origin}`), false);
 };
 

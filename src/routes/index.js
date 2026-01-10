@@ -26,6 +26,7 @@ import unidadMedidaRoutes from './unidadMedida.routes.js';
 import ivaRoutes from './iva.routes.js';
 import rolRoutes from './rol.routes.js';
 import marcaRoutes from './marca.routes.js';
+import canalVentaRoutes from './canal-venta.routes.js';
 
 const router = Router();
 
@@ -72,6 +73,7 @@ router.use('/unidades-medida', unidadMedidaRoutes);
 router.use('/iva', ivaRoutes);
 router.use('/roles', rolRoutes);
 router.use('/marcas', marcaRoutes);
+router.use('/canales-venta', canalVentaRoutes);
 router.use('/carrito', carritoRoutes);
 router.use('/pedidos', pedidoRoutes);
 router.use('/pagos', pagoRoutes);

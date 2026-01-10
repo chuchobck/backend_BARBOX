@@ -31,6 +31,7 @@ import metodoPagoRoutes from './metodo-pago.routes.js';
 import categoriaPromocionRoutes from './categoria-promocion.routes.js';
 import sucursalRoutes from './sucursal.routes.js';
 import empleadosRoutes from './empleados.routes.js';
+import ajusteInventarioRoutes from './ajusteInventario.routes.js';
 
 const router = Router();
 
@@ -82,6 +83,7 @@ router.use('/metodos-pago', metodoPagoRoutes);
 router.use('/categorias-promocion', categoriaPromocionRoutes);
 router.use('/sucursales', sucursalRoutes);
 router.use('/empleados', empleadosRoutes);
+router.use('/ajustes-inventario', ajusteInventarioRoutes);
 router.use('/carrito', carritoRoutes);
 router.use('/pedidos', pedidoRoutes);
 router.use('/pagos', pagoRoutes);

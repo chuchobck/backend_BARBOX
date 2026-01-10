@@ -68,6 +68,20 @@ npm start
 
 El servidor estará disponible en `http://localhost:3000`
 
+## 🧪 Pruebas sin Base de Datos
+
+Para ejecutar pruebas locales sin depender de una base de datos:
+
+```bash
+# Usa el test runner nativo de Node
+npm test
+
+# O ejecuta el smoke test minimalista
+npm run test:smoke
+```
+
+Estas pruebas usan una app Express mínima con endpoints simulados (mock) y no importan Prisma ni realizan conexiones a la BD.
+
 ## 📁 Estructura del Proyecto
 
 ```

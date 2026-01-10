@@ -10,7 +10,8 @@
   "scripts": {
     "build": "prisma generate",
     "start": "node src/app.js",
-    "test": "node --test"
+    "test": "node --test",
+    "test:smoke": "node tests/run-tests.js"
   },
   "dependencies": {
     "@prisma/client": "^6.19.0",

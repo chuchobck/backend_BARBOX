@@ -480,14 +480,15 @@ export const eliminarProductoCarrito = async (req, res, next) => {
       });
     }
 
-    // Eliminar el producto
-    await prisma.carrito_detalle.delete({
+    // Marcar producto como inactivo (eliminación lógica)
+    await prisma.carrito_detalle.update({
       where: { 
         id_carrito_id_producto: { 
           id_carrito, 
           id_producto 
         } 
-      }
+      },
+      data: { estado: 'INA' }
     });
 
     // Recalcular totales
@@ -527,9 +528,10 @@ export const vaciarCarrito = async (req, res, next) => {
       });
     }
 
-    // Eliminar todos los detalles
-    await prisma.carrito_detalle.deleteMany({ 
-      where: { id_carrito } 
+    // Marcar todos los detalles como inactivos (eliminación lógica)
+    await prisma.carrito_detalle.updateMany({ 
+      where: { id_carrito },
+      data: { estado: 'INA' }
     });
 
     // Actualizar totales a cero (mantiene estado ACT - no cambia a DEL)
@@ -572,7 +574,10 @@ export const vaciarCarrito = async (req, res, next) => {
  */
 async function recalcularCarrito(id_carrito) {
   const detalles = await prisma.carrito_detalle.findMany({
-    where: { id_carrito }
+    where: { 
+      id_carrito,
+      estado: 'ACT'
+    }
   });
 
   const subtotal = detalles.reduce((sum, detalle) => {
@@ -604,6 +609,7 @@ async function obtenerCarritoCompleto(id_carrito) {
     where: { id_carrito },
     include: {
       carrito_detalle: {
+        where: { estado: 'ACT' },
         include: {
           producto: {
             select: {

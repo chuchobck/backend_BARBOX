@@ -3,8 +3,7 @@ import {
   listarUnidadesMedida,
   obtenerUnidadMedida,
   crearUnidadMedida,
-  actualizarUnidadMedida,
-  eliminarUnidadMedida
+  actualizarUnidadMedida
 } from '../controllers/unidadMedida.controller.js';
 
 const router = Router();
@@ -13,6 +12,5 @@ router.get('/', listarUnidadesMedida);
 router.get('/:id', obtenerUnidadMedida);
 router.post('/', crearUnidadMedida);
 router.put('/:id', actualizarUnidadMedida);
-router.delete('/:id', eliminarUnidadMedida);
 
 export default router;

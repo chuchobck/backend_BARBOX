@@ -111,27 +111,5 @@ export const actualizarUnidadMedida = async (req, res, next) => {
     });
   } catch (err) {
     next(err);
-  }
-};
-
-/**
- * DELETE /api/v1/unidades-medida/:id
- * Eliminar una unidad de medida
- */
-export const eliminarUnidadMedida = async (req, res, next) => {
-  try {
-    const { id } = req.params;
-
-    await prisma.unidad_medida.delete({
-      where: { id_unidad_medida: id }
-    });
-
-    res.json({
-      status: 'success',
-      message: 'Unidad de medida eliminada exitosamente'
-    });
-  } catch (err) {
-    next(err);
-  }
-};
+  };
 

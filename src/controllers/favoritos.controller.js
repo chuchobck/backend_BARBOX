@@ -87,12 +87,33 @@ export const agregarFavorito = async (req, res, next) => {
  */
 export const eliminarFavorito = async (req, res, next) => {
   try {
-    const id = parseInt(req.params.id_favorito);
-    if (!id) {
-      return res.status(400).json({ status: 'error', message: 'id_favorito es requerido', data: null });
+    const favorito = await prisma.producto_favorito.findUnique({
+      where: { 
+        id_cliente_id_producto: { 
+          id_cliente: req.usuario.id_cliente,
+          id_producto: req.params.id_producto
+        }
+      }
+    });
+
+    if (!favorito) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Producto no encontrado en favoritos',
+        data: null
+      });
     }
 
-    await prisma.producto_favorito.delete({ where: { id_favorito: id } });
+    // Marcar como inactivo (eliminación lógica)
+    await prisma.producto_favorito.update({
+      where: { 
+        id_cliente_id_producto: { 
+          id_cliente: req.usuario.id_cliente,
+          id_producto: req.params.id_producto
+        }
+      },
+      data: { estado: 'INA' }
+    });
 
     res.json({ status: 'success', message: 'Producto eliminado de favoritos', data: null });
   } catch (err) {

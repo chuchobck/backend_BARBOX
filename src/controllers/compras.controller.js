@@ -441,9 +441,10 @@ export const actualizarCompra = async (req, res, next) => {
 
     // 3. Usar transacción para actualizar
     const resultado = await prisma.$transaction(async (tx) => {
-      // a. Eliminar todos los detalles anteriores
-      await tx.detalle_compra.deleteMany({
-        where: { id_compra }
+      // a. Marcar detalles anteriores como inactivos (eliminación lógica)
+      await tx.detalle_compra.updateMany({
+        where: { id_compra },
+        data: { estado: 'INA' }
       });
 
       // b. Insertar los nuevos detalles

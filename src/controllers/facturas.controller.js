@@ -483,9 +483,10 @@ export const editarFacturaAbierta = async (req, res, next) => {
 
     // Usar transacción para actualizar
     const resultado = await prisma.$transaction(async (tx) => {
-      // Eliminar detalles anteriores
-      await tx.factura_detalle.deleteMany({
-        where: { id_factura }
+      // Marcar detalles anteriores como inactivos (eliminación lógica)
+      await tx.factura_detalle.updateMany({
+        where: { id_factura },
+        data: { estado: 'INA' }
       });
 
       // Crear nuevos detalles

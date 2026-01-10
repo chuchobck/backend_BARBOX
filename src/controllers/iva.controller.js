@@ -156,19 +156,52 @@ export const actualizarIva = async (req, res, next) => {
 
 /**
  * DELETE /api/v1/iva/:id
- * Eliminar una configuración de IVA
+ * Desactivar una configuración de IVA (eliminación lógica)
  */
 export const eliminarIva = async (req, res, next) => {
   try {
-    const { id } = req.params;
+    const id = Number(req.params.id);
 
-    await prisma.iva.delete({
-      where: { id_iva: parseInt(id) }
+    if (isNaN(id)) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'ID de IVA inválido',
+        data: null
+      });
+    }
+
+    // Verificar que la configuración existe
+    const iva = await prisma.iva.findUnique({
+      where: { id_iva: id }
+    });
+
+    if (!iva) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Configuración de IVA no encontrada',
+        data: null
+      });
+    }
+
+    // Verificar que NO esté ya inactivo
+    if (iva.estado === 'I') {
+      return res.status(400).json({
+        status: 'error',
+        message: 'La configuración de IVA ya se encuentra desactivada',
+        data: null
+      });
+    }
+
+    // Actualizar estado a I (Inactivo)
+    const ivaDesactivado = await prisma.iva.update({
+      where: { id_iva: id },
+      data: { estado: 'I' }
     });
 
     res.json({
       status: 'success',
-      message: 'Configuración de IVA eliminada exitosamente'
+      message: 'Configuración de IVA desactivada correctamente',
+      data: ivaDesactivado
     });
   } catch (err) {
     next(err);

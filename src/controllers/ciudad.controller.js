@@ -110,26 +110,4 @@ export const actualizarCiudad = async (req, res, next) => {
     });
   } catch (err) {
     next(err);
-  }
-};
-
-/**
- * DELETE /api/v1/ciudades/:id
- * Eliminar una ciudad
- */
-export const eliminarCiudad = async (req, res, next) => {
-  try {
-    const { id } = req.params;
-
-    await prisma.ciudad.delete({
-      where: { id_ciudad: id }
-    });
-
-    res.json({
-      status: 'success',
-      message: 'Ciudad eliminada exitosamente'
-    });
-  } catch (err) {
-    next(err);
-  }
-};
+  };

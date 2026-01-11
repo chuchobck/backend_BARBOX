@@ -15,8 +15,6 @@ import productosRoutes from './productos.routes.js';
 import catalogoRoutes from './catalogo.routes.js';
 import promocionesRoutes from './promociones.routes.js';
 import carritoRoutes from './carrito.routes.js';
-import pedidoRoutes from './pedido.routes.js'; 
-import pagoRoutes from './pago.routes.js';
 import favoritosRoutes from './favoritos.routes.js';
 
 // ========== RUTAS AUXILIARES  ==========
@@ -32,6 +30,8 @@ import categoriaPromocionRoutes from './categoria-promocion.routes.js';
 import sucursalRoutes from './sucursal.routes.js';
 import empleadosRoutes from './empleados.routes.js';
 import ajusteInventarioRoutes from './ajusteInventario.routes.js';
+import recepcionRoutes from './recepcion.routes.js';
+import auditoriaRoutes from './auditoria.routes.js';
 
 const router = Router();
 
@@ -84,9 +84,9 @@ router.use('/categorias-promocion', categoriaPromocionRoutes);
 router.use('/sucursales', sucursalRoutes);
 router.use('/empleados', empleadosRoutes);
 router.use('/ajustes-inventario', ajusteInventarioRoutes);
+router.use('/recepciones', recepcionRoutes);
+router.use('/auditorias', auditoriaRoutes);
 router.use('/carrito', carritoRoutes);
-router.use('/pedidos', pedidoRoutes);
-router.use('/pagos', pagoRoutes);
 router.use('/favoritos', favoritosRoutes);
 
 export default router;

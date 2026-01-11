@@ -36,6 +36,7 @@ model canal_venta {
   id_canal    String    @id @db.Char(3)
   descripcion String
   estado      String?   @default("ACT") @db.Char(3)
+  cliente     cliente[]
   factura     factura[]
 }
 
@@ -96,17 +97,21 @@ model cliente {
   id_cliente        Int                 @id @default(autoincrement())
   id_usuario        Int?                @unique
   ruc_cedula        String              @unique @db.VarChar(13)
-  nombre            String
   email             String?
   telefono          String?
   direccion         String?
   id_ciudad         String?             @db.Char(3)
-  origen            String?             @default("POS") @db.Char(3)
   estado            String?             @default("ACT") @db.Char(3)
   fecha_creacion    DateTime?           @default(now()) @db.Timestamp(6)
+  nombre1           String              @db.VarChar(60)
+  nombre2           String              @db.VarChar(60)
+  apellido1         String              @db.VarChar(60)
+  apellido2         String              @db.VarChar(60)
+  id_canal          String?             @db.Char(3)
   carrito           carrito[]
   ciudad            ciudad?             @relation(fields: [id_ciudad], references: [id_ciudad], onDelete: NoAction, onUpdate: NoAction)
   usuario           usuario?            @relation(fields: [id_usuario], references: [id_usuario], onUpdate: NoAction)
+  canal_venta       canal_venta?        @relation(fields: [id_canal], references: [id_canal], onDelete: NoAction, onUpdate: NoAction, map: "fk_cliente_canal")
   factura           factura[]
   producto_favorito producto_favorito[]
 }
@@ -163,13 +168,15 @@ model empleado {
   id_empleado    Int         @id @default(autoincrement())
   id_usuario     Int         @unique
   cedula         String      @unique @db.VarChar(13)
-  nombre         String
-  apellido       String
+  nombre1        String      @db.VarChar(55)
+  apellido1      String      @db.VarChar(55)
   telefono       String?
   id_rol         Int
   id_sucursal    Int?
   estado         String?     @default("ACT") @db.Char(3)
   fecha_creacion DateTime?   @default(now()) @db.Timestamp(6)
+  nombre2        String      @db.VarChar(55)
+  apellido2      String      @db.VarChar(55)
   rol            rol         @relation(fields: [id_rol], references: [id_rol], onDelete: NoAction, onUpdate: NoAction)
   sucursal       sucursal?   @relation(fields: [id_sucursal], references: [id_sucursal], onDelete: NoAction, onUpdate: NoAction)
   usuario        usuario     @relation(fields: [id_usuario], references: [id_usuario], onDelete: Cascade, onUpdate: NoAction)
@@ -325,12 +332,12 @@ model promocion_producto {
 model proveedor {
   id_proveedor String   @id @db.VarChar(7)
   ruc_cedula   String   @unique @db.VarChar(13)
-  nombre       String
   telefono     String?
   email        String?
   direccion    String?
   id_ciudad    String   @db.Char(3)
   estado       String?  @default("ACT") @db.Char(3)
+  nombre       String?  @db.VarChar(60)
   compra       compra[]
   ciudad       ciudad   @relation(fields: [id_ciudad], references: [id_ciudad], onDelete: NoAction, onUpdate: NoAction)
 }

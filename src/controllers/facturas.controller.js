@@ -129,7 +129,7 @@ export const buscarFacturas = async (req, res, next) => {
  * POST /api/v1/facturas
  * Body esperado:
  * {
- *   "clienteId": 1,
+ *   "id_cliente": 1,
  *   "id_carrito": "uuid...",  // UUID del carrito
  *   "id_metodo_pago": 1,
  *   "id_sucursal": 1
@@ -141,11 +141,11 @@ export const buscarFacturas = async (req, res, next) => {
  */
 export const crearFactura = async (req, res, next) => {
   try {
-    const { clienteId, id_carrito, id_metodo_pago, id_sucursal } = req.body;
+    const { id_cliente, id_carrito, id_metodo_pago, id_sucursal } = req.body;
     const id_empleado = req.usuario?.id_empleado || null; // Solo si viene desde POS
 
     // Validaciones básicas
-    if (!clienteId) {
+    if (!id_cliente) {
       return res.status(400).json({ 
         status: 'error', 
         message: 'Cliente es requerido', 
@@ -179,7 +179,7 @@ export const crearFactura = async (req, res, next) => {
 
     // Validar que cliente existe
     const cliente = await prisma.cliente.findUnique({
-      where: { id_cliente: Number(clienteId) }
+      where: { id_cliente: Number(id_cliente) }
     });
 
     if (!cliente) {
@@ -216,7 +216,7 @@ export const crearFactura = async (req, res, next) => {
       });
     }
 
-    if (carrito.id_cliente !== Number(clienteId)) {
+    if (carrito.id_cliente !== Number(id_cliente)) {
       return res.status(403).json({
         status: 'error',
         message: 'El carrito no pertenece a este cliente',
@@ -353,7 +353,7 @@ export const crearFactura = async (req, res, next) => {
         data: {
           id_factura,
           id_canal: canal,
-          id_cliente: Number(clienteId),
+          id_cliente: Number(id_cliente),
           id_carrito: id_carrito,
           id_empleado,
           id_sucursal: Number(id_sucursal),

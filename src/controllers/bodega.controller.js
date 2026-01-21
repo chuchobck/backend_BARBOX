@@ -12,11 +12,11 @@ export const listarRecepciones = async (req, res, next) => {
     const recepciones = await prisma.recepcion.findMany({
       include: {
         compra: true,
-        detalles: {
+          detalle_recepcion: {
           include: { producto: true }
         }
       },
-      orderBy: { fecha_recepcion: 'desc' }
+      orderBy: { fecha_hora: 'desc' }
     });
 
     return res.json({
@@ -50,7 +50,7 @@ export const obtenerRecepcion = async (req, res, next) => {
       where: { id_recepcion: id },
       include: {
         compra: true,
-        detalles: {
+          detalle_recepcion: {
           include: { producto: true }
         }
       }
@@ -273,10 +273,10 @@ export const anularRecepcion = async (req, res, next) => {
     const recepcion = await prisma.recepcion.findUnique({
       where: { id_recepcion: Number(id_recepcion) },
       include: {
-        detalles: true,
+        detalle_recepcion: true,
         compra: {
           include: {
-            detalles: true
+            detalle_recepcion: true
           }
         }
       }

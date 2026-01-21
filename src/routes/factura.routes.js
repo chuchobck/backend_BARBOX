@@ -8,31 +8,30 @@ import {
   crearFactura,
   editarFacturaAbierta,
   anularFactura,
-  imprimirFactura
+  imprimirFactura,
+  misPedidos,
+  pedidosPendientesRetiro,
+  marcarRetirado
 } from '../controllers/factura.controller.js';
 import { verificarToken } from '../middleware/auth.js';
 import { soloAdmin, adminOPos, soloPropiosDatos } from '../middleware/validateRole.js';
 
 const router = Router();
 
-// GET /api/v1/facturas - Listar facturas (Admin)
-router.get('/', verificarToken, soloAdmin, listarFacturas);
+// Rutas específicas ANTES de /:id
+router.get('/mis-pedidos', verificarToken, misPedidos); // Historial del cliente autenticado
+router.get('/pedidos-retiro', verificarToken, adminOPos, pedidosPendientesRetiro); // Pedidos pendientes (POS)
+router.get('/buscar', verificarToken, soloAdmin, buscarFacturas); // Búsqueda unificada (Admin)
 
-// GET /api/v1/facturas/buscar?id=&cliente=&fechaDesde=&fechaHasta=&estado= - Búsqueda unificada (Admin)
-// Soporta búsqueda por: id, cliente, fechas, estado
-router.get('/buscar', verificarToken, soloAdmin, buscarFacturas);
+// Rutas generales
+router.get('/', verificarToken, soloAdmin, listarFacturas); // Listar facturas (Admin)
+router.post('/', verificarToken, crearFactura); // Crear factura (Checkout)
 
-// POST /api/v1/facturas - Crear factura
-// E-commerce: estado ABI | POS: estado APR
-router.post('/', verificarToken, crearFactura);
-
-// PUT /api/v1/facturas/:id - Editar factura abierta (Cliente E-commerce)
-router.put('/:id', verificarToken, editarFacturaAbierta);
-
-// POST /api/v1/facturas/:id/anular - Anular factura (Admin)
-router.post('/:id/anular', verificarToken, soloAdmin, anularFactura);
-
-// GET /api/v1/facturas/:id/imprimir - Generar PDF de factura
-router.get('/:id/imprimir', verificarToken, imprimirFactura);
+// Rutas con parámetros
+router.post('/:id/marcar-retirado', verificarToken, adminOPos, marcarRetirado); // Marcar pedido retirado (POS)
+router.get('/:id/imprimir', verificarToken, imprimirFactura); // Generar PDF
+router.put('/:id', verificarToken, editarFacturaAbierta); // Editar factura abierta
+router.post('/:id/anular', verificarToken, soloAdmin, anularFactura); // Anular factura (Admin)
+router.get('/:id', verificarToken, buscarFacturas); // Obtener factura por ID (usa buscarFacturas)
 
 export default router;

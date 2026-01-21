@@ -88,7 +88,6 @@ model ciudad {
   descripcion String
   cliente     cliente[]
   proveedor   proveedor[]
-  sucursal    sucursal[]
 }
 
 model cliente {
@@ -190,7 +189,6 @@ model empleado {
   cedula         String      @unique @db.VarChar(13)
   telefono       String?
   id_rol         Int
-  id_sucursal    Int?
   estado         String?     @default("ACT") @db.Char(3)
   fecha_creacion DateTime?   @default(now()) @db.Timestamp(6)
   nombre1        String
@@ -198,7 +196,6 @@ model empleado {
   apellido1      String
   apellido2      String?
   rol            rol         @relation(fields: [id_rol], references: [id_rol], onDelete: NoAction, onUpdate: NoAction)
-  sucursal       sucursal?   @relation(fields: [id_sucursal], references: [id_sucursal], onDelete: NoAction, onUpdate: NoAction)
   usuario        usuario     @relation(fields: [id_usuario], references: [id_usuario], onDelete: Cascade, onUpdate: NoAction)
   factura        factura[]
   recepcion      recepcion[]
@@ -210,7 +207,6 @@ model factura {
   id_cliente      Int
   id_carrito      String?           @unique @db.Uuid
   id_empleado     Int?
-  id_sucursal     Int
   id_metodo_pago  Int
   id_iva          Int
   subtotal        Decimal           @db.Decimal(14, 3)
@@ -225,7 +221,6 @@ model factura {
   empleado        empleado?         @relation(fields: [id_empleado], references: [id_empleado], onDelete: NoAction, onUpdate: NoAction)
   iva             iva               @relation(fields: [id_iva], references: [id_iva], onDelete: NoAction, onUpdate: NoAction)
   metodo_pago     metodo_pago       @relation(fields: [id_metodo_pago], references: [id_metodo_pago], onDelete: NoAction, onUpdate: NoAction)
-  sucursal        sucursal          @relation(fields: [id_sucursal], references: [id_sucursal], onDelete: NoAction, onUpdate: NoAction)
 }
 
 model iva {
@@ -259,22 +254,22 @@ model metodo_pago {
 }
 
 model producto {
-  id_producto                                        String               @id @default(dbgenerated("('P'::text || lpad((nextval('seq_producto'::regclass))::text, 6, '0'::text))")) @db.VarChar(7)
+  id_producto                                        String                 @id @default(dbgenerated("('P'::text || lpad((nextval('seq_producto'::regclass))::text, 6, '0'::text))")) @db.VarChar(7)
   descripcion                                        String
   id_prod_categoria                                  Int?
   id_marca                                           Int?
-  id_um_compra                                       String               @db.Char(3)
-  id_um_venta                                        String               @db.Char(3)
-  costo_promedio                                     Decimal?             @default(0) @db.Decimal(14, 3)
-  precio_venta                                       Decimal              @db.Decimal(14, 3)
-  saldo_inicial                                      Int?                 @default(0)
+  id_um_compra                                       String                 @db.Char(3)
+  id_um_venta                                        String                 @db.Char(3)
+  costo_promedio                                     Decimal?               @default(0) @db.Decimal(14, 3)
+  precio_venta                                       Decimal                @db.Decimal(14, 3)
+  saldo_inicial                                      Int?                   @default(0)
   saldo_actual                                       Int?
-  volumen                                            Decimal?             @db.Decimal(10, 2)
-  alcohol_vol                                        Decimal?             @db.Decimal(4, 2)
+  volumen                                            Decimal?               @db.Decimal(10, 2)
+  alcohol_vol                                        Decimal?               @db.Decimal(4, 2)
   origen                                             String?
   notas_cata                                         String?
-  estado                                             String?              @default("ACT") @db.Char(3)
-  codigo_barras                                      String?              @unique(map: "idx_producto_codigo_barras") @db.VarChar(50)
+  estado                                             String?                @default("ACT") @db.Char(3)
+  codigo_barras                                      String?                @unique(map: "idx_producto_codigo_barras") @db.VarChar(50)
   imagen_url                                         String?
   carrito_detalle                                    carrito_detalle[]
   detalle_ajuste                                     detalle_ajuste[]
@@ -282,12 +277,12 @@ model producto {
   detalle_factura                                    detalle_factura[]
   detalle_promocion                                  detalle_promocion[]
   detalle_recepcion                                  detalle_recepcion[]
-  categoria_producto                                 categoria_producto?  @relation(fields: [id_prod_categoria], references: [id_prod_categoria], onDelete: NoAction, onUpdate: NoAction, map: "producto_id_categoria_fkey")
-  marca                                              marca?               @relation(fields: [id_marca], references: [id_marca], onDelete: NoAction, onUpdate: NoAction)
-  unidad_medida_producto_id_um_compraTounidad_medida unidad_medida        @relation("producto_id_um_compraTounidad_medida", fields: [id_um_compra], references: [id_unidad_medida], onDelete: NoAction, onUpdate: NoAction)
-  unidad_medida_producto_id_um_ventaTounidad_medida  unidad_medida        @relation("producto_id_um_ventaTounidad_medida", fields: [id_um_venta], references: [id_unidad_medida], onDelete: NoAction, onUpdate: NoAction)
+  categoria_producto                                 categoria_producto?    @relation(fields: [id_prod_categoria], references: [id_prod_categoria], onDelete: NoAction, onUpdate: NoAction, map: "producto_id_categoria_fkey")
+  marca                                              marca?                 @relation(fields: [id_marca], references: [id_marca], onDelete: NoAction, onUpdate: NoAction)
+  unidad_medida_producto_id_um_compraTounidad_medida unidad_medida          @relation("producto_id_um_compraTounidad_medida", fields: [id_um_compra], references: [id_unidad_medida], onDelete: NoAction, onUpdate: NoAction)
+  unidad_medida_producto_id_um_ventaTounidad_medida  unidad_medida          @relation("producto_id_um_ventaTounidad_medida", fields: [id_um_venta], references: [id_unidad_medida], onDelete: NoAction, onUpdate: NoAction)
   producto_favorito                                  producto_favorito[]
-  proveedor_producto                                 proveedor_producto[]
+  proveedor_x_producto                               proveedor_x_producto[]
 }
 
 model producto_favorito {
@@ -321,29 +316,29 @@ model promocion {
 }
 
 model proveedor {
-  id_proveedor       String               @id @default(dbgenerated("('PR'::text || lpad((nextval('seq_proveedor'::regclass))::text, 5, '0'::text))")) @db.VarChar(7)
-  ruc_cedula         String               @unique @db.VarChar(13)
-  razon_social       String
-  telefono           String?
-  email              String?
-  direccion          String?
-  id_ciudad          String               @db.Char(3)
-  estado             String?              @default("ACT") @db.Char(3)
-  compra             compra[]
-  ciudad             ciudad               @relation(fields: [id_ciudad], references: [id_ciudad], onDelete: NoAction, onUpdate: NoAction)
-  proveedor_producto proveedor_producto[]
+  id_proveedor         String                 @id @default(dbgenerated("('PR'::text || lpad((nextval('seq_proveedor'::regclass))::text, 5, '0'::text))")) @db.VarChar(7)
+  ruc_cedula           String                 @unique @db.VarChar(13)
+  razon_social         String
+  telefono             String?
+  email                String?
+  direccion            String?
+  id_ciudad            String                 @db.Char(3)
+  estado               String?                @default("ACT") @db.Char(3)
+  compra               compra[]
+  ciudad               ciudad                 @relation(fields: [id_ciudad], references: [id_ciudad], onDelete: NoAction, onUpdate: NoAction)
+  proveedor_x_producto proveedor_x_producto[]
 }
 
-model proveedor_producto {
+model proveedor_x_producto {
   id_proveedor  String    @db.VarChar(7)
   id_producto   String    @db.VarChar(7)
   precio_compra Decimal?  @db.Decimal(14, 3)
   stock         Int?
   estado        Boolean?  @default(true)
-  producto      producto  @relation(fields: [id_producto], references: [id_producto], onDelete: NoAction, onUpdate: NoAction)
-  proveedor     proveedor @relation(fields: [id_proveedor], references: [id_proveedor], onDelete: NoAction, onUpdate: NoAction)
+  producto      producto  @relation(fields: [id_producto], references: [id_producto], onDelete: NoAction, onUpdate: NoAction, map: "proveedor_producto_id_producto_fkey")
+  proveedor     proveedor @relation(fields: [id_proveedor], references: [id_proveedor], onDelete: NoAction, onUpdate: NoAction, map: "proveedor_producto_id_proveedor_fkey")
 
-  @@id([id_proveedor, id_producto])
+  @@id([id_proveedor, id_producto], map: "proveedor_producto_pkey")
 }
 
 model recepcion {
@@ -370,21 +365,6 @@ model rol {
   empleado    empleado[]
 }
 
-model sucursal {
-  id_sucursal     Int        @id @default(autoincrement())
-  codigo          String     @unique @db.VarChar(10)
-  nombre          String
-  direccion       String
-  id_ciudad       String     @db.Char(3)
-  telefono        String?
-  horario         String?
-  activo          Boolean?   @default(true)
-  es_punto_retiro Boolean?   @default(true)
-  empleado        empleado[]
-  factura         factura[]
-  ciudad          ciudad     @relation(fields: [id_ciudad], references: [id_ciudad], onDelete: NoAction, onUpdate: NoAction)
-}
-
 model unidad_medida {
   id_unidad_medida                              String     @id @db.Char(3)
   descripcion                                   String
@@ -394,7 +374,7 @@ model unidad_medida {
 
 model usuario {
   id_usuario     Int       @id @default(autoincrement())
-  email          String    @unique
+  usuario        String    @unique(map: "usuario_email_key")
   password_hash  String
   estado         String?   @default("ACT") @db.Char(3)
   fecha_creacion DateTime? @default(now()) @db.Timestamp(6)

@@ -13,7 +13,7 @@ export const listarFavoritos = async (req, res, next) => {
     }
 
     const favoritos = await prisma.producto_favorito.findMany({
-      where: { id_usuario: usuarioId, estado: 'ACT' },
+      where: { id_cliente: usuarioId },
       include: { 
         producto: {
           include: {
@@ -25,7 +25,7 @@ export const listarFavoritos = async (req, res, next) => {
             },
             categoria_producto: {
               select: {
-                id_categoria_producto: true,
+                id_prod_categoria: true,
                 nombre: true,
                 descripcion: true
               }
@@ -56,23 +56,16 @@ export const agregarFavorito = async (req, res, next) => {
 
     // Evitar duplicados
     const existente = await prisma.producto_favorito.findFirst({
-      where: { id_usuario: usuarioId, id_producto: productoId }
+      where: { id_cliente: usuarioId, id_producto: productoId }
     });
 
     if (existente) {
-      if (existente.estado === 'ACT') {
-        return res.status(409).json({ status: 'error', message: 'Producto ya está en favoritos', data: null });
-      }
-      // Reactivar si estaba inactivo
-      const reactivar = await prisma.producto_favorito.update({
-        where: { id_favorito: existente.id_favorito },
-        data: { estado: 'ACT', fecha_creacion: new Date() }
-      });
-      return res.json({ status: 'success', message: 'Producto reactivado en favoritos', data: reactivar });
+      // Ya existe, no hay campo estado ni id_favorito, solo retornar que ya existe
+      return res.status(409).json({ status: 'error', message: 'Producto ya está en favoritos', data: existente });
     }
 
     const favorito = await prisma.producto_favorito.create({
-      data: { id_usuario: usuarioId, id_producto: productoId }
+      data: { id_cliente: usuarioId, id_producto: productoId }
     });
 
     res.status(201).json({ status: 'success', message: 'Producto agregado a favoritos', data: favorito });

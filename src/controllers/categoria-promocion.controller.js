@@ -11,10 +11,7 @@ export const listarCategoriasPromocion = async (req, res, next) => {
   try {
     const categorias = await prisma.categoria_promocion.findMany({
       where: { activo: true },
-      orderBy: [
-        { orden: 'asc' },
-        { nombre: 'asc' }
-      ]
+      orderBy: { nombre: 'asc' }
     });
 
     if (categorias.length === 0) {

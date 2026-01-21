@@ -308,3 +308,41 @@ export const eliminarMetodoPago = async (req, res, next) => {
     next(err);
   }
 };
+
+/**
+ * GET /api/v1/metodos-pago/disponibles-web
+ * Listar métodos de pago disponibles para e-commerce (canal WEB)
+ */
+export const listarMetodosPagoWeb = async (req, res, next) => {
+  try {
+    const metodosWeb = await prisma.metodo_pago.findMany({
+      where: { 
+        estado: 'ACT',
+        disponible_web: true
+      },
+      select: {
+        id_metodo_pago: true,
+        codigo: true,
+        nombre: true,
+        requiere_referencia: true
+      },
+      orderBy: { nombre: 'asc' }
+    });
+
+    if (metodosWeb.length === 0) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'No hay métodos de pago disponibles para e-commerce',
+        data: []
+      });
+    }
+
+    res.json({
+      status: 'success',
+      message: 'Métodos de pago disponibles para e-commerce',
+      data: metodosWeb
+    });
+  } catch (err) {
+    next(err);
+  }
+};

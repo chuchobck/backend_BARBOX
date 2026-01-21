@@ -1,8 +1,9 @@
 // src/middleware/validateRole.js - Validación de roles
+// Roles en BD: ADMIN, CAJERO, BODEGA, CLIENTE
 
 /**
  * Middleware factory: Valida que el usuario tenga uno de los roles permitidos
- * @param {string[]} rolesPermitidos - Array de roles permitidos (ej: ['admin', 'pos'])
+ * @param {string[]} rolesPermitidos - Array de roles permitidos (ej: ['ADMIN', 'CAJERO'])
  */
 export function requireRole(...rolesPermitidos) {
   return (req, res, next) => {
@@ -33,39 +34,49 @@ export function requireRole(...rolesPermitidos) {
 /**
  * Middleware: Solo administradores
  */
-export const soloAdmin = requireRole('admin');
+export const soloAdmin = requireRole('ADMIN');
 
 /**
- * Middleware: Admin o POS
+ * Middleware: Admin o Cajero (POS)
  */
-export const adminOPos = requireRole('admin', 'pos');
+export const adminOPos = requireRole('ADMIN', 'CAJERO');
+
+/**
+ * Middleware: Admin o Bodega
+ */
+export const adminOBodega = requireRole('ADMIN', 'BODEGA');
 
 /**
  * Middleware: Solo clientes
  */
-export const soloCliente = requireRole('cliente');
+export const soloCliente = requireRole('CLIENTE');
+
+/**
+ * Middleware: Cualquier empleado (Admin, Cajero, Bodega)
+ */
+export const soloEmpleados = requireRole('ADMIN', 'CAJERO', 'BODEGA');
 
 /**
  * Middleware: Cualquier usuario autenticado
  */
-export const cualquierRol = requireRole('admin', 'cliente', 'pos');
+export const cualquierRol = requireRole('ADMIN', 'CLIENTE', 'CAJERO', 'BODEGA');
 
 /**
  * Middleware: Verifica que el usuario acceda solo a sus propios datos
  */
 export function soloPropiosDatos(paramIdField = 'id') {
   return (req, res, next) => {
-    const { rol, id: usuarioId, clienteId } = req.usuario;
+    const { rol, id: usuarioId, id_cliente } = req.usuario;
 
     // Admin puede ver todo
-    if (rol === 'admin') {
+    if (rol === 'ADMIN') {
       return next();
     }
 
     // Para clientes, verificar que acceden a sus propios datos
     const idSolicitado = parseInt(req.params[paramIdField]);
 
-    if (rol === 'cliente' && clienteId !== idSolicitado) {
+    if (rol === 'CLIENTE' && id_cliente !== idSolicitado) {
       return res.status(403).json({
         status: 'error',
         message: 'Solo puede acceder a sus propios datos',

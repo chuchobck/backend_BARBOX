@@ -1,41 +1,34 @@
-// src/controllers/auth.controller.js - Controlador de autenticación
-// 🟡 PERSONA 3: Módulo Auth
-
+// src/controllers/auth.controller.js
 import prisma from '../lib/prisma.js';
 import { generarToken } from '../middleware/auth.js';
 import bcrypt from 'bcryptjs';
 
 /**
  * POST /api/v1/auth/login
- * Iniciar sesión
  */
 export const login = async (req, res, next) => {
   try {
-    let { email, password } = req.body;
+    let { usuario: usuarioInput, password } = req.body;
 
-    console.log('Login attempt:', { email });
-
-    if (!email || !password) {
+    if (!usuarioInput || !password) {
       return res.status(400).json({
         status: 'error',
-        message: 'Email y contraseña son requeridos',
+        message: 'Usuario y contraseña son requeridos',
         data: null
       });
     }
 
-    // 🔹 Normalizar email
-    email = email.toLowerCase().trim();
+    const usuarioNormalized = usuarioInput.toLowerCase().trim();
 
+    // Buscar usuario con sus relaciones
     const usuario = await prisma.usuario.findUnique({
-      where: { email }
-    });
-
-    console.log('Usuario encontrado:', {
-      id: usuario?.id_usuario,
-      estado: usuario?.estado,
-      tipo_usuario: usuario?.tipo_usuario,
-      rol: usuario?.rol,
-      hasPassword: !!usuario?.password_hash
+      where: { usuario: usuarioNormalized },
+      include: {
+        cliente: true,
+        empleado: {
+          include: { rol: true }
+        }
+      }
     });
 
     if (!usuario || usuario.estado !== 'ACT') {
@@ -46,7 +39,6 @@ export const login = async (req, res, next) => {
       });
     }
 
-    // 🔹 Usuarios sin password (POS/Admin creados por sistema)
     if (!usuario.password_hash) {
       return res.status(403).json({
         status: 'error',
@@ -55,10 +47,7 @@ export const login = async (req, res, next) => {
       });
     }
 
-    const passwordValido = await bcrypt.compare(
-      password,
-      usuario.password_hash
-    );
+    const passwordValido = await bcrypt.compare(password, usuario.password_hash);
 
     if (!passwordValido) {
       return res.status(401).json({
@@ -68,15 +57,25 @@ export const login = async (req, res, next) => {
       });
     }
 
+    // Actualizar último acceso
     await prisma.usuario.update({
       where: { id_usuario: usuario.id_usuario },
       data: { ultimo_acceso: new Date() }
     });
 
+    // Determinar tipo de usuario y rol
+    const esEmpleado = !!usuario.empleado;
+    const esCliente = !!usuario.cliente;
+    
+    const tipoUsuario = esEmpleado ? 'EMPLEADO' : 'CLIENTE';
+    const rol = esEmpleado ? usuario.empleado.rol.codigo : 'CLIENTE';
+
     const token = generarToken({
       id: usuario.id_usuario,
-      rol: usuario.rol,
-      tipo: usuario.tipo_usuario
+      rol: rol,
+      tipo: tipoUsuario,
+      id_cliente: usuario.cliente?.id_cliente || null,
+      id_empleado: usuario.empleado?.id_empleado || null
     });
 
     res.json({
@@ -86,9 +85,24 @@ export const login = async (req, res, next) => {
         token,
         usuario: {
           id_usuario: usuario.id_usuario,
-          email: usuario.email,
-          rol: usuario.rol,
-          tipo_usuario: usuario.tipo_usuario
+          usuario: usuario.usuario,
+          rol: rol,
+          tipo_usuario: tipoUsuario,
+          // Datos según tipo
+          ...(esCliente && {
+            cliente: {
+              id_cliente: usuario.cliente.id_cliente,
+              nombre: `${usuario.cliente.nombre1} ${usuario.cliente.apellido1}`,
+              ruc_cedula: usuario.cliente.ruc_cedula
+            }
+          }),
+          ...(esEmpleado && {
+            empleado: {
+              id_empleado: usuario.empleado.id_empleado,
+              nombre: `${usuario.empleado.nombre1} ${usuario.empleado.apellido1}`,
+              id_sucursal: usuario.empleado.id_sucursal
+            }
+          })
         }
       }
     });
@@ -98,159 +112,172 @@ export const login = async (req, res, next) => {
   }
 };
 
+/**
+ * POST /api/v1/auth/registro
+ * Solo para clientes (e-commerce)
+ */
 export const registro = async (req, res, next) => {
   try {
-    console.log('Registro body:', req.body);
-
     const {
-      cliente: {
-        id_cliente,
-        nombre1,
-        nombre2,
-        apellido1,
-        apellido2,
-        ruc_cedula,
-        telefono,
-        celular,
-        email: clienteEmail,
-        direccion,
-        id_ciudad,
-      },
-      usuario: { email, password },
+      nombre1,
+      nombre2,
+      apellido1,
+      apellido2,
+      ruc_cedula,
+      telefono,
+      usuario: usuarioInput,
+      password,
+      direccion,
+      id_ciudad,
+      email
     } = req.body;
 
-    // 🔹 Validaciones básicas
-    if (!id_cliente || !nombre1 || !apellido1 || !ruc_cedula || !id_ciudad) {
+    // Validaciones
+    if (!nombre1 || !apellido1 || !ruc_cedula || !usuarioInput || !password) {
       return res.status(400).json({
         status: 'error',
-        message: 'Datos de cliente obligatorios faltantes',
-        data: null,
+        message: 'Campos obligatorios: nombre1, apellido1, ruc_cedula, usuario, password',
+        data: null
       });
     }
 
-    if (!email || !password) {
-      return res.status(400).json({
-        status: 'error',
-        message: 'Email y contraseña de usuario son obligatorios',
-        data: null,
-      });
-    }
+    const usuarioNormalized = usuarioInput.toLowerCase().trim();
 
-    // 🔹 Normalizar email
-    const emailNormalized = email.toLowerCase().trim();
-
-    // 🔹 Validar email duplicado en usuario
+    // Verificar usuario único
     const usuarioExistente = await prisma.usuario.findUnique({
-      where: { email: emailNormalized },
+      where: { usuario: usuarioNormalized }
     });
 
     if (usuarioExistente) {
       return res.status(409).json({
         status: 'error',
-        message: 'El email ya está registrado',
-        data: null,
+        message: 'El nombre de usuario ya está registrado',
+        data: null
       });
     }
 
-    // 🔹 Validar RUC/Cédula único
+    // Verificar RUC/Cédula único
     const clienteExistente = await prisma.cliente.findUnique({
-      where: { ruc_cedula },
+      where: { ruc_cedula }
     });
 
     if (clienteExistente) {
       return res.status(409).json({
         status: 'error',
-        message: 'El cliente con este RUC/Cédula ya existe',
-        data: null,
+        message: 'Ya existe un cliente con este RUC/Cédula',
+        data: null
       });
     }
 
-    // 🔹 Encriptar password
     const passwordHash = await bcrypt.hash(password, 10);
 
-    // 🔹 Crear cliente + usuario en transacción
-    const [clienteCreado, usuarioCreado] = await prisma.$transaction([
-      prisma.cliente.create({
+    // Transacción: crear usuario y cliente
+    const resultado = await prisma.$transaction(async (tx) => {
+      // 1. Crear usuario
+      const nuevoUsuario = await tx.usuario.create({
         data: {
-          id_cliente,
-          nombre1,
-          nombre2,
-          apellido1,
-          apellido2,
-          ruc_cedula,
-          telefono,
-          celular,
-          email: clienteEmail || null,
-          direccion,
-          id_ciudad,
-          estado: 'ACT',
-        },
-      }),
-      prisma.usuario.create({
-        data: {
-          email: emailNormalized,
+          usuario: usuarioNormalized,
           password_hash: passwordHash,
-          rol: 'CLIENTE',
-          tipo_usuario: 'CLIENTE',
-          id_cliente,
-          estado: 'ACT',
-        },
-      }),
-    ]);
+          estado: 'ACT'
+        }
+      });
 
-    console.log('Cliente creado:', clienteCreado);
-    console.log('Usuario creado:', { id: usuarioCreado.id_usuario, email: usuarioCreado.email });
+      // 2. Crear cliente vinculado al usuario
+      const nuevoCliente = await tx.cliente.create({
+        data: {
+          id_usuario: nuevoUsuario.id_usuario,
+          nombre1,
+          nombre2: nombre2 || null,
+          apellido1,
+          apellido2: apellido2 || null,
+          ruc_cedula,
+          telefono: telefono || null,
+          email: email || null,
+          direccion: direccion || null,
+          id_ciudad: id_ciudad || null,
+          origen: 'WEB', // Registrado desde e-commerce
+          estado: 'ACT'
+        }
+      });
 
-    // 🔹 Generar token JWT
+      return { usuario: nuevoUsuario, cliente: nuevoCliente };
+    });
+
+    // Generar token
     const token = generarToken({
-      id: usuarioCreado.id_usuario,
-      rol: usuarioCreado.rol,
-      tipo: usuarioCreado.tipo_usuario,
+      id: resultado.usuario.id_usuario,
+      rol: 'CLIENTE',
+      tipo: 'CLIENTE',
+      id_cliente: resultado.cliente.id_cliente,
+      id_empleado: null
     });
 
     return res.status(201).json({
       status: 'success',
-      message: 'Registrado correctamente',
+      message: 'Registro exitoso',
       data: {
         token,
         usuario: {
-          id_usuario: usuarioCreado.id_usuario,
-          email: usuarioCreado.email,
-          rol: usuarioCreado.rol,
-          tipo_usuario: usuarioCreado.tipo_usuario,
+          id_usuario: resultado.usuario.id_usuario,
+          usuario: resultado.usuario.usuario,
+          rol: 'CLIENTE',
+          tipo_usuario: 'CLIENTE'
         },
-        cliente: clienteCreado,
-      },
+        cliente: {
+          id_cliente: resultado.cliente.id_cliente,
+          nombre: `${resultado.cliente.nombre1} ${resultado.cliente.apellido1}`,
+          ruc_cedula: resultado.cliente.ruc_cedula
+        }
+      }
     });
   } catch (err) {
+    console.error('Registro error:', err);
     next(err);
   }
 };
 
 /**
  * GET /api/v1/auth/perfil
- * Obtener perfil del usuario autenticado
  */
 export const perfil = async (req, res, next) => {
   try {
-    const { id, rol } = req.usuario;
+    const { id } = req.usuario;
 
     const usuario = await prisma.usuario.findUnique({
       where: { id_usuario: id },
       include: {
-        cliente: true
+        cliente: {
+          include: { ciudad: true }
+        },
+        empleado: {
+          include: { 
+            rol: true,
+            sucursal: true 
+          }
+        }
       }
     });
+
+    if (!usuario) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Usuario no encontrado',
+        data: null
+      });
+    }
+
+    const esEmpleado = !!usuario.empleado;
 
     res.json({
       status: 'success',
       message: 'Perfil obtenido',
       data: {
         id_usuario: usuario.id_usuario,
-        email: usuario.email,
-        rol: usuario.rol,
-        tipo_usuario: usuario.tipo_usuario,
-        cliente: usuario.cliente
+        usuario: usuario.usuario,
+        tipo_usuario: esEmpleado ? 'EMPLEADO' : 'CLIENTE',
+        rol: esEmpleado ? usuario.empleado.rol.codigo : 'CLIENTE',
+        ...(usuario.cliente && { cliente: usuario.cliente }),
+        ...(usuario.empleado && { empleado: usuario.empleado })
       }
     });
   } catch (err) {
@@ -259,60 +286,45 @@ export const perfil = async (req, res, next) => {
 };
 
 /**
- * PUT /api/v1/auth/actualizar-perfil
- * Actualizar datos del perfil del usuario autenticado
+ * PUT /api/v1/auth/perfil
  */
 export const actualizarPerfil = async (req, res, next) => {
   try {
     const { id } = req.usuario;
-    const {
-      nombre1,
-      nombre2,
-      apellido1,
-      apellido2,
-      telefono,
-      celular,
-      direccion,
-      id_ciudad
-    } = req.body;
+    const { nombre1, nombre2, apellido1, apellido2, telefono, direccion, id_ciudad } = req.body;
 
-    // Obtener usuario y verificar que tenga cliente asociado
     const usuario = await prisma.usuario.findUnique({
       where: { id_usuario: id },
       include: { cliente: true }
     });
 
-    if (!usuario || !usuario.cliente) {
+    if (!usuario?.cliente) {
       return res.status(404).json({
         status: 'error',
-        message: 'Usuario no tiene cliente asociado',
+        message: 'No tiene perfil de cliente asociado',
         data: null
       });
     }
 
-    // Preparar datos para actualizar (solo los que se enviaron)
     const datosActualizar = {};
     if (nombre1 !== undefined) datosActualizar.nombre1 = nombre1;
     if (nombre2 !== undefined) datosActualizar.nombre2 = nombre2;
     if (apellido1 !== undefined) datosActualizar.apellido1 = apellido1;
     if (apellido2 !== undefined) datosActualizar.apellido2 = apellido2;
     if (telefono !== undefined) datosActualizar.telefono = telefono;
-    if (celular !== undefined) datosActualizar.celular = celular;
     if (direccion !== undefined) datosActualizar.direccion = direccion;
     if (id_ciudad !== undefined) datosActualizar.id_ciudad = id_ciudad;
 
-    // Actualizar cliente
     const clienteActualizado = await prisma.cliente.update({
       where: { id_cliente: usuario.cliente.id_cliente },
-      data: datosActualizar
+      data: datosActualizar,
+      include: { ciudad: true }
     });
 
     res.json({
       status: 'success',
-      message: 'Perfil actualizado correctamente',
-      data: {
-        cliente: clienteActualizado
-      }
+      message: 'Perfil actualizado',
+      data: { cliente: clienteActualizado }
     });
   } catch (err) {
     next(err);
@@ -321,12 +333,19 @@ export const actualizarPerfil = async (req, res, next) => {
 
 /**
  * PUT /api/v1/auth/cambiar-password
- * Cambiar contraseña
  */
 export const cambiarPassword = async (req, res, next) => {
   try {
     const { id } = req.usuario;
     const { passwordActual, passwordNueva } = req.body;
+
+    if (!passwordActual || !passwordNueva) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Contraseña actual y nueva son requeridas',
+        data: null
+      });
+    }
 
     const usuario = await prisma.usuario.findUnique({
       where: { id_usuario: id }
@@ -340,10 +359,7 @@ export const cambiarPassword = async (req, res, next) => {
       });
     }
 
-    const valida = await bcrypt.compare(
-      passwordActual,
-      usuario.password_hash
-    );
+    const valida = await bcrypt.compare(passwordActual, usuario.password_hash);
 
     if (!valida) {
       return res.status(401).json({
@@ -362,7 +378,7 @@ export const cambiarPassword = async (req, res, next) => {
 
     res.json({
       status: 'success',
-      message: 'Contraseña actualizada correctamente',
+      message: 'Contraseña actualizada',
       data: null
     });
   } catch (err) {
@@ -370,3 +386,10 @@ export const cambiarPassword = async (req, res, next) => {
   }
 };
 
+export default {
+  login,
+  registro,
+  perfil,
+  actualizarPerfil,
+  cambiarPassword
+};

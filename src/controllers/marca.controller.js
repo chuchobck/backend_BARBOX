@@ -29,6 +29,8 @@ export const listarMarcas = async (req, res, next) => {
       limit
     } = req.query;
 
+    console.log('🏷️ /marcas - Filtros recibidos:', { id_categoria, nombre, estado, incluirInactivas, orderBy, order, page, limit });
+
     // Construir filtros dinámicos
     const where = {};
     
@@ -69,7 +71,7 @@ export const listarMarcas = async (req, res, next) => {
       include: {
         categoria_producto: {
           select: {
-            id_categoria_producto: true,
+            id_prod_categoria: true,
             nombre: true,
             descripcion: true,
             activo: true
@@ -139,7 +141,7 @@ export const obtenerMarca = async (req, res, next) => {
     const includeOptions = {
       categoria_producto: {
         select: {
-          id_categoria_producto: true,
+          id_prod_categoria: true,
           nombre: true,
           descripcion: true,
           activo: true
@@ -200,11 +202,11 @@ export const obtenerMarca = async (req, res, next) => {
 /**
  * POST /api/v1/marcas
  * Crear una nueva marca
- * Body: { nombre: string, id_categoria: number, logo_url?: string }
+ * Body: { nombre: string, id_categoria: number, imagen_url?: string }
  */
 export const crearMarca = async (req, res, next) => {
   try {
-    const { nombre, id_categoria, logo_url } = req.body;
+    const { nombre, id_categoria, imagen_url } = req.body;
 
     // Validaciones
     if (!nombre || !id_categoria) {
@@ -216,7 +218,7 @@ export const crearMarca = async (req, res, next) => {
 
     // Verificar que la categoría existe
     const categoria = await prisma.categoria_producto.findUnique({
-      where: { id_categoria_producto: parseInt(id_categoria) }
+      where: { id_prod_categoria: parseInt(id_categoria) }
     });
 
     if (!categoria) {
@@ -254,13 +256,13 @@ export const crearMarca = async (req, res, next) => {
       data: {
         nombre,
         id_categoria: parseInt(id_categoria),
-        logo_url: logo_url || null,
+        imagen_url: imagen_url || null,
         estado: 'ACT'
       },
       include: {
         categoria_producto: {
           select: {
-            id_categoria_producto: true,
+            id_prod_categoria: true,
             nombre: true,
             descripcion: true
           }
@@ -289,12 +291,12 @@ export const crearMarca = async (req, res, next) => {
 /**
  * PUT /api/v1/marcas/:id
  * Actualizar una marca
- * Body: { nombre?: string, id_categoria?: number, logo_url?: string, estado?: string }
+ * Body: { nombre?: string, id_categoria?: number, imagen_url?: string, estado?: string }
  */
 export const actualizarMarca = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { nombre, id_categoria, logo_url, estado } = req.body;
+    const { nombre, id_categoria, imagen_url, estado } = req.body;
 
     // Verificar que la marca existe
     const marcaExistente = await prisma.marca.findUnique({
@@ -335,7 +337,7 @@ export const actualizarMarca = async (req, res, next) => {
     if (id_categoria !== undefined) {
       // Verificar que la categoría existe
       const categoria = await prisma.categoria_producto.findUnique({
-        where: { id_categoria_producto: parseInt(id_categoria) }
+        where: { id_prod_categoria: parseInt(id_categoria) }
       });
 
       if (!categoria) {
@@ -347,8 +349,8 @@ export const actualizarMarca = async (req, res, next) => {
       data.id_categoria = parseInt(id_categoria);
     }
     
-    if (logo_url !== undefined) {
-      data.logo_url = logo_url;
+    if (imagen_url !== undefined) {
+      data.imagen_url = imagen_url;
     }
     
     if (estado !== undefined) {
@@ -368,7 +370,7 @@ export const actualizarMarca = async (req, res, next) => {
       include: {
         categoria_producto: {
           select: {
-            id_categoria_producto: true,
+            id_prod_categoria: true,
             nombre: true,
             descripcion: true
           }
@@ -427,7 +429,7 @@ export const eliminarMarca = async (req, res, next) => {
         include: {
           categoria_producto: {
             select: {
-              id_categoria_producto: true,
+              id_prod_categoria: true,
               nombre: true
             }
           }

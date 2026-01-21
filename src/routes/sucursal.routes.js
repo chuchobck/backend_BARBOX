@@ -5,12 +5,14 @@ import {
   obtenerSucursal,
   crearSucursal,
   actualizarSucursal,
-  eliminarSucursal
+  eliminarSucursal,
+  listarPuntosRetiro
 } from '../controllers/sucursal.controller.js';
 
 const router = Router();
 
-// Nota: /buscar antes de /:id
+// Nota: Rutas específicas antes de /:id
+router.get('/puntos-retiro', listarPuntosRetiro); // Para e-commerce
 router.get('/buscar', buscarSucursales);
 router.get('/', listarSucursales);
 router.get('/:id', obtenerSucursal);

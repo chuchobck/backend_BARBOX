@@ -3,16 +3,28 @@ import prisma from '../lib/prisma.js';
 // ========== CATEGORÍAS ==========
 export const listarCategorias = async (req, res, next) => {
   try {
+    console.log('📂 Obteniendo categorías de productos...');
+    
     const categorias = await prisma.categoria_producto.findMany({
       where: { activo: true },
       select: {
-        id_categoria_producto: true,
+        id_prod_categoria: true,
         nombre: true,
         activo: true
       }
     });
 
-    res.json({ success: true, data: categorias });
+    console.log(`📂 Categorías encontradas: ${categorias.length}`);
+
+    // Mapear para el frontend
+    const categoriasFormateadas = categorias.map(c => ({
+      id_categoria: c.id_prod_categoria,
+      id_categoria_producto: c.id_prod_categoria,
+      nombre: c.nombre,
+      activo: c.activo
+    }));
+
+    res.json({ success: true, data: categoriasFormateadas });
   } catch (error) {
     next(error);
   }
@@ -21,7 +33,7 @@ export const listarCategorias = async (req, res, next) => {
 export const obtenerCategoria = async (req, res, next) => {
   try {
     const categoria = await prisma.categoria_producto.findUnique({
-      where: { id_categoria_producto: parseInt(req.params.id) }
+      where: { id_prod_categoria: parseInt(req.params.id) }
     });
 
     if (!categoria) {
@@ -37,10 +49,14 @@ export const obtenerCategoria = async (req, res, next) => {
 // ========== MARCAS ==========
 export const listarMarcas = async (req, res, next) => {
   try {
+    console.log('🏷️ Obteniendo marcas...');
+    
     const marcas = await prisma.marca.findMany({
       where: { estado: 'ACT' },
       orderBy: { nombre: 'asc' }
     });
+
+    console.log(`🏷️ Marcas encontradas: ${marcas.length}`);
 
     res.json({ success: true, data: marcas });
   } catch (error) {
@@ -65,14 +81,20 @@ export const listarProductos = async (req, res, next) => {
       limite = 30
     } = req.query;
 
+    console.log('📦 Filtros recibidos en /productos:', { categoria, marcaId, busqueda, precioMin, precioMax, volumen, origen, soloDisponibles, ordenarPor, pagina, limite });
+    console.log('📦 Tipo de categoria:', typeof categoria, '- Valor:', categoria);
+
     // Construir condiciones WHERE dinámicamente
     const where = {
       estado: 'ACT'
     };
 
     // Filtro por categoría
-    if (categoria) {
-      where.id_categoria_producto = parseInt(categoria);
+    if (categoria && categoria !== 'undefined' && categoria !== '') {
+      where.id_prod_categoria = parseInt(categoria);
+      console.log('✅ Filtrando por categoría:', categoria, '→', where.id_prod_categoria);
+    } else {
+      console.log('⚠️ SIN filtro de categoría - mostrando TODOS los productos');
     }
 
     // Filtro por marca
@@ -122,11 +144,20 @@ export const listarProductos = async (req, res, next) => {
     } else if (ordenarPor === 'popular') {
       // Para "popular" ordenar por stock (más vendidos = menos stock restante)
       orderBy = { saldo_actual: 'desc' };
+    } else if (ordenarPor === 'aleatorio') {
+      // Para aleatorio, ordenar por id_producto pero mezclado con el skip
+      orderBy = [{ id_prod_categoria: 'asc' }, { id_producto: 'desc' }];
     }
 
     // Paginación
     const skip = (parseInt(pagina) - 1) * parseInt(limite);
     const take = parseInt(limite);
+
+    console.log('🔍 Ejecutando consulta con WHERE:', JSON.stringify(where, null, 2));
+
+    // Contar total de productos con los filtros aplicados
+    const totalProductos = await prisma.producto.count({ where });
+    console.log(`📊 Total de productos en BD con filtros: ${totalProductos}`);
 
     // Consultar productos con filtros
     const productos = await prisma.producto.findMany({
@@ -137,7 +168,7 @@ export const listarProductos = async (req, res, next) => {
       include: {
         categoria_producto: {
           select: {
-            id_categoria_producto: true,
+            id_prod_categoria: true,
             nombre: true
           }
         },
@@ -145,7 +176,7 @@ export const listarProductos = async (req, res, next) => {
           select: {
             id_marca: true,
             nombre: true,
-            logo_url: true
+            imagen_url: true
           }
         },
         unidad_medida_producto_id_um_ventaTounidad_medida: {
@@ -176,13 +207,13 @@ export const listarProductos = async (req, res, next) => {
       activo: p.estado === 'ACT',
       imagen_url: p.imagen_url,
       categoria: p.categoria_producto ? {
-        id_categoria: p.categoria_producto.id_categoria_producto,
+        id_categoria: p.categoria_producto.id_prod_categoria,
         nombre: p.categoria_producto.nombre
       } : null,
       marca: p.marca ? {
         id_marca: p.marca.id_marca,
         nombre: p.marca.nombre,
-        logo_url: p.marca.logo_url
+        imagen_url: p.marca.imagen_url
       } : null,
       unidad_medida: p.unidad_medida_producto_id_um_ventaTounidad_medida ? {
         id_unidad_medida: p.unidad_medida_producto_id_um_ventaTounidad_medida.id_unidad_medida,
@@ -190,9 +221,17 @@ export const listarProductos = async (req, res, next) => {
       } : null
     }));
 
+    console.log(`📊 Resultados: ${productosTransformados.length} productos en esta página de ${totalProductos} totales`);
+
     res.json({ 
       status: 'success',
-      data: productosTransformados 
+      data: productosTransformados,
+      pagination: {
+        pagina: parseInt(pagina),
+        limite: parseInt(limite),
+        total: totalProductos,
+        totalPaginas: Math.ceil(totalProductos / parseInt(limite))
+      }
     });
   } catch (error) {
     console.error('❌ Error en listarProductos:', error);
@@ -207,7 +246,7 @@ export const obtenerProducto = async (req, res, next) => {
       include: {
         categoria_producto: {
           select: {
-            id_categoria_producto: true,
+            id_prod_categoria: true,
             nombre: true
           }
         },
@@ -215,7 +254,7 @@ export const obtenerProducto = async (req, res, next) => {
           select: {
             id_marca: true,
             nombre: true,
-            logo_url: true
+            imagen_url: true
           }
         },
         unidad_medida_producto_id_um_ventaTounidad_medida: {
@@ -253,13 +292,13 @@ export const obtenerProducto = async (req, res, next) => {
       activo: producto.estado === 'ACT',
       imagen_url: producto.imagen_url,
       categoria: producto.categoria_producto ? {
-        id_categoria: producto.categoria_producto.id_categoria_producto,
+        id_categoria: producto.categoria_producto.id_prod_categoria,
         nombre: producto.categoria_producto.nombre
       } : null,
       marca: producto.marca ? {
         id_marca: producto.marca.id_marca,
         nombre: producto.marca.nombre,
-        logo_url: producto.marca.logo_url
+        imagen_url: producto.marca.imagen_url
       } : null,
       unidad_medida: producto.unidad_medida_producto_id_um_ventaTounidad_medida ? {
         id_unidad_medida: producto.unidad_medida_producto_id_um_ventaTounidad_medida.id_unidad_medida,

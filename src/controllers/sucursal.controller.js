@@ -221,4 +221,53 @@ export const eliminarSucursal = async (req, res, next) => {
   }
 };
 
+/**
+ * GET /api/v1/sucursales/puntos-retiro
+ * Listar sucursales disponibles como puntos de retiro para e-commerce
+ */
+export const listarPuntosRetiro = async (req, res, next) => {
+  try {
+    const puntosRetiro = await prisma.sucursal.findMany({
+      where: { 
+        activo: true,
+        es_punto_retiro: true
+      },
+      include: {
+        ciudad: {
+          select: { 
+            id_ciudad: true, 
+            descripcion: true 
+          }
+        }
+      },
+      select: {
+        id_sucursal: true,
+        codigo: true,
+        nombre: true,
+        direccion: true,
+        telefono: true,
+        horario: true,
+        ciudad: true
+      },
+      orderBy: { nombre: 'asc' }
+    });
+
+    if (!puntosRetiro || puntosRetiro.length === 0) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'No hay puntos de retiro disponibles',
+        data: []
+      });
+    }
+
+    return res.json({ 
+      status: 'success', 
+      message: 'Puntos de retiro disponibles', 
+      data: puntosRetiro 
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
 export default null;

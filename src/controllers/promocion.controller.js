@@ -6,16 +6,48 @@ import prisma from '../lib/prisma.js';
 
 export const listarPromociones = async (req, res, next) => {
   try {
+    const { categoria, ordenarPor, limite } = req.query;
+    
+    console.log('🎁 Filtros recibidos en /promociones:', { categoria, ordenarPor, limite });
+    
+    // Construir where dinámico
+    const where = { estado: true };
+    
+    // Si viene categoría, agregar filtro con sintaxis correcta de Prisma
+    if (categoria) {
+      where.categoria_promocion = {
+        is: {
+          nombre: categoria
+        }
+      };
+      console.log('✅ Filtrando promociones por categoría:', categoria);
+    }
+
+    // Construir orderBy dinámico
+    let orderBy = { fecha_inicio: 'desc' };
+    if (ordenarPor === 'destacado') {
+      orderBy = { cantidad_vendida: 'desc' }; // Más vendidos = más destacados
+    } else if (ordenarPor === 'precio_asc') {
+      orderBy = { precio_promocional: 'asc' };
+    } else if (ordenarPor === 'precio_desc') {
+      orderBy = { precio_promocional: 'desc' };
+    } else if (ordenarPor === 'mayor-descuento') {
+      orderBy = { porcentaje_descuento: 'desc' };
+    }
+
     const promociones = await prisma.promocion.findMany({
-      where: { activo: true },
+      where,
       include: {
         categoria_promocion: true,
-        promocion_producto: {
+        detalle_promocion: {
           include: { producto: true }
         }
       },
-      orderBy: [{ destacado: 'desc' }, { fecha_inicio: 'desc' }]
+      orderBy,
+      take: limite ? Number(limite) : undefined
     });
+
+    console.log(`📊 Resultados: ${promociones.length} promociones encontradas`);
 
     if (!promociones || promociones.length === 0) {
       return res.status(404).json({ status: 'error', message: 'No existen promociones registradas', data: [] });
@@ -33,10 +65,10 @@ export const obtenerPromocion = async (req, res, next) => {
     if (!id) return res.status(400).json({ status: 'error', message: 'ID de promoción es requerido', data: null });
 
     const promocion = await prisma.promocion.findUnique({
-      where: { id },
+      where: { id_promocion: id },
       include: {
         categoria_promocion: true,
-        promocion_producto: {
+        detalle_promocion: {
           include: { producto: true },
           orderBy: { orden: 'asc' }
         }
@@ -59,19 +91,19 @@ export const obtenerPromocionesActivas = async (req, res, next) => {
 
     const promociones = await prisma.promocion.findMany({
       where: {
-        activo: true,
+        estado: true,
         fecha_inicio: { lte: ahora },
         fecha_fin: { gte: ahora },
         stock_disponible: { gt: 0 }
       },
       include: {
         categoria_promocion: true,
-        promocion_producto: {
+        detalle_promocion: {
           include: { producto: true },
           orderBy: { orden: 'asc' }
         }
       },
-      orderBy: { destacado: 'desc' }
+      orderBy: { fecha_inicio: 'desc' }
     });
 
     return res.json({ status: 'success', message: 'Promociones activas obtenidas', data: promociones });
@@ -82,17 +114,16 @@ export const obtenerPromocionesActivas = async (req, res, next) => {
 
 export const buscarPromociones = async (req, res, next) => {
   try {
-    const { nombre, id_categoria, destacado, activo } = req.query;
+    const { nombre, id_categoria, activo } = req.query;
 
-    if (!nombre && !id_categoria && typeof destacado === 'undefined' && typeof activo === 'undefined') {
+    if (!nombre && !id_categoria && typeof activo === 'undefined') {
       return res.status(400).json({ status: 'error', message: 'Ingrese al menos un criterio de búsqueda', data: null });
     }
 
     const where = {};
     if (nombre) where.nombre = { contains: nombre, mode: 'insensitive' };
-    if (id_categoria) where.id_categoria = Number(id_categoria);
-    if (typeof destacado !== 'undefined') where.destacado = String(destacado).toLowerCase() === 'true';
-    if (typeof activo !== 'undefined') where.activo = String(activo).toLowerCase() === 'true';
+    if (id_categoria) where.id_prom_categoria = Number(id_categoria);
+    if (typeof activo !== 'undefined') where.estado = String(activo).toLowerCase() === 'true';
 
     const resultados = await prisma.promocion.findMany({
       where,
@@ -124,7 +155,6 @@ export const crearPromocion = async (req, res, next) => {
       fecha_fin,
       stock_disponible,
       cantidad_maxima_cliente,
-      destacado,
       productos
     } = req.body;
 
@@ -149,7 +179,7 @@ export const crearPromocion = async (req, res, next) => {
     }
 
     // Validar categoría
-    const categoria = await prisma.categoria_promocion.findUnique({ where: { id: Number(id_categoria) } });
+    const categoria = await prisma.categoria_promocion.findUnique({ where: { id_prom_categoria: Number(id_categoria) } });
     if (!categoria) {
       return res.status(400).json({ status: 'error', message: 'Categoría de promoción no existe', data: null });
     }
@@ -174,7 +204,7 @@ export const crearPromocion = async (req, res, next) => {
     const resultado = await prisma.$transaction(async (tx) => {
       const promo = await tx.promocion.create({
         data: {
-          id_categoria: Number(id_categoria),
+          id_prom_categoria: Number(id_categoria),
           nombre,
           descripcion: descripcion || null,
           descripcion_corta: descripcion_corta || null,
@@ -186,15 +216,14 @@ export const crearPromocion = async (req, res, next) => {
           stock_disponible: Number(stock_disponible),
           cantidad_vendida: 0,
           cantidad_maxima_cliente: cantidad_maxima_cliente ? Number(cantidad_maxima_cliente) : null,
-          destacado: Boolean(destacado),
-          activo: true
+          estado: true
         }
       });
 
       for (const prod of productos) {
-        await tx.promocion_producto.create({
+        await tx.detalle_promocion.create({
           data: {
-            id_promocion: promo.id,
+            id_promocion: promo.id_promocion,
             id_producto: prod.id_producto,
             cantidad: Number(prod.cantidad),
             es_principal: Boolean(prod.es_principal),
@@ -226,14 +255,13 @@ export const actualizarPromocion = async (req, res, next) => {
       fecha_fin,
       stock_disponible,
       cantidad_maxima_cliente,
-      destacado,
       activo,
       productos
     } = req.body;
 
     if (!id) return res.status(400).json({ status: 'error', message: 'ID de promoción es requerido', data: null });
 
-    const promocion = await prisma.promocion.findUnique({ where: { id } });
+    const promocion = await prisma.promocion.findUnique({ where: { id_promocion: id } });
     if (!promocion) {
       return res.status(404).json({ status: 'error', message: 'Promoción no encontrada', data: null });
     }
@@ -265,7 +293,7 @@ export const actualizarPromocion = async (req, res, next) => {
     const resultado = await prisma.$transaction(async (tx) => {
       // Actualizar promoción
       const actualizado = await tx.promocion.update({
-        where: { id },
+        where: { id_promocion: id },
         data: {
           nombre: nombre ?? promocion.nombre,
           descripcion: typeof descripcion === 'undefined' ? promocion.descripcion : descripcion,
@@ -277,19 +305,18 @@ export const actualizarPromocion = async (req, res, next) => {
           fecha_fin: fecha_fin ? new Date(fecha_fin) : promocion.fecha_fin,
           stock_disponible: typeof stock_disponible === 'undefined' ? promocion.stock_disponible : Number(stock_disponible),
           cantidad_maxima_cliente: typeof cantidad_maxima_cliente === 'undefined' ? promocion.cantidad_maxima_cliente : (cantidad_maxima_cliente ? Number(cantidad_maxima_cliente) : null),
-          destacado: typeof destacado === 'undefined' ? promocion.destacado : Boolean(destacado),
-          activo: typeof activo === 'undefined' ? promocion.activo : Boolean(activo)
+          estado: typeof activo === 'undefined' ? promocion.estado : Boolean(activo)
         }
       });
 
       // Si vienen productos, actualizar
       if (productos && Array.isArray(productos)) {
         // Eliminar productos anteriores
-        await tx.promocion_producto.deleteMany({ where: { id_promocion: id } });
+        await tx.detalle_promocion.deleteMany({ where: { id_promocion: id } });
 
         // Crear nuevos
         for (const prod of productos) {
-          await tx.promocion_producto.create({
+          await tx.detalle_promocion.create({
             data: {
               id_promocion: id,
               id_producto: prod.id_producto,
@@ -315,16 +342,16 @@ export const eliminarPromocion = async (req, res, next) => {
     const id = Number(req.params.id);
     if (!id) return res.status(400).json({ status: 'error', message: 'ID de promoción es requerido', data: null });
 
-    const promocion = await prisma.promocion.findUnique({ where: { id } });
+    const promocion = await prisma.promocion.findUnique({ where: { id_promocion: id } });
     if (!promocion) {
       return res.status(404).json({ status: 'error', message: 'Promoción no encontrada', data: null });
     }
 
-    if (promocion.activo === false) {
+    if (promocion.estado === false) {
       return res.status(409).json({ status: 'error', message: 'La promoción ya está inactiva', data: null });
     }
 
-    await prisma.promocion.update({ where: { id }, data: { activo: false } });
+    await prisma.promocion.update({ where: { id_promocion: id }, data: { estado: false } });
 
     return res.json({ status: 'success', message: 'Promoción desactivada correctamente', data: { id } });
   } catch (err) {
@@ -342,12 +369,12 @@ export const incrementarVendida = async (req, res, next) => {
       return res.status(400).json({ status: 'error', message: 'Cantidad debe ser mayor a 0', data: null });
     }
 
-    const promocion = await prisma.promocion.findUnique({ where: { id } });
+    const promocion = await prisma.promocion.findUnique({ where: { id_promocion: id } });
     if (!promocion) {
       return res.status(404).json({ status: 'error', message: 'Promoción no encontrada', data: null });
     }
 
-    if (!promocion.activo) {
+    if (!promocion.estado) {
       return res.status(400).json({ status: 'error', message: 'La promoción no está activa', data: null });
     }
 
@@ -359,11 +386,11 @@ export const incrementarVendida = async (req, res, next) => {
     const nuevaCantidadVendida = (promocion.cantidad_vendida || 0) + cantidad;
 
     const actualizado = await prisma.promocion.update({
-      where: { id },
+      where: { id_promocion: id },
       data: {
         cantidad_vendida: nuevaCantidadVendida,
         stock_disponible: nuevoStock,
-        activo: nuevoStock > 0 ? promocion.activo : false
+        estado: nuevoStock > 0 ? promocion.estado : false
       }
     });
 
@@ -373,7 +400,7 @@ export const incrementarVendida = async (req, res, next) => {
       data: {
         cantidad_vendida: actualizado.cantidad_vendida,
         stock_disponible: actualizado.stock_disponible,
-        activo: actualizado.activo
+        estado: actualizado.estado
       }
     });
   } catch (err) {

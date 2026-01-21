@@ -39,7 +39,7 @@ export const obtenerCategoria = async (req, res, next) => {
     const { id } = req.params;
 
     const categoria = await prisma.categoria_producto.findUnique({
-      where: { id_categoria_producto: parseInt(id) },
+      where: { id_prod_categoria: parseInt(id) },
       include: {
         _count: {
           select: { producto: true, marca: true }
@@ -112,7 +112,7 @@ export const actualizarCategoria = async (req, res, next) => {
     if (activo !== undefined) data.activo = activo;
 
     const categoria = await prisma.categoria_producto.update({
-      where: { id_categoria_producto: parseInt(id) },
+      where: { id_prod_categoria: parseInt(id) },
       data
     });
 
@@ -135,7 +135,7 @@ export const eliminarCategoria = async (req, res, next) => {
     const { id } = req.params;
 
     const categoria = await prisma.categoria_producto.update({
-      where: { id_categoria_producto: parseInt(id) },
+      where: { id_prod_categoria: parseInt(id) },
       data: { activo: false }
     });
 

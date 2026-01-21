@@ -39,7 +39,7 @@ export const obtenerCarrito = async (req, res, next) => {
                 select: {
                   id_producto: true,
                   descripcion: true,
-                  precioVenta: true,
+                  precio_venta: true,
                   imagen_url: true,
                   saldo_actual: true,
                   estado: true,
@@ -79,7 +79,7 @@ export const obtenerCarrito = async (req, res, next) => {
                 select: {
                   id_producto: true,
                   descripcion: true,
-                  precioVenta: true,
+                  precio_venta: true,
                   imagen_url: true,
                   saldo_actual: true,
                   estado: true,
@@ -308,7 +308,7 @@ export const agregarProducto = async (req, res, next) => {
       });
     }
 
-    const precioUnitario = producto.precioVenta;
+    const precioUnitario = producto.precio_venta;
 
     // Verificar si el producto ya está en el carrito
     const detalleExistente = await prisma.carrito_detalle.findUnique({

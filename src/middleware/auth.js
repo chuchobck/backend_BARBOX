@@ -1,5 +1,4 @@
-// src/middleware/auth.js - Autenticación JWT
-
+// src/middleware/auth.js
 import jwt from 'jsonwebtoken';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'tu-secreto-super-seguro-cambiar-en-produccion';
@@ -30,7 +29,16 @@ export function verificarToken(req, res, next) {
 
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
-    req.usuario = decoded; // { id, email, rol }
+    
+    // ✅ Estructura completa del usuario
+    req.usuario = {
+      id: decoded.id,
+      rol: decoded.rol,
+      tipo: decoded.tipo,
+      id_cliente: decoded.id_cliente || null,
+      id_empleado: decoded.id_empleado || null
+    };
+    
     next();
   } catch (error) {
     if (error.name === 'TokenExpiredError') {
@@ -63,10 +71,69 @@ export function verificarTokenOpcional(req, res, next) {
 
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
-    req.usuario = decoded;
+    req.usuario = {
+      id: decoded.id,
+      rol: decoded.rol,
+      tipo: decoded.tipo,
+      id_cliente: decoded.id_cliente || null,
+      id_empleado: decoded.id_empleado || null
+    };
   } catch {
     req.usuario = null;
   }
   
   next();
 }
+
+/**
+ * Middleware: Verificar que sea cliente
+ */
+export function soloClientes(req, res, next) {
+  if (req.usuario?.tipo !== 'CLIENTE') {
+    return res.status(403).json({
+      status: 'error',
+      message: 'Acceso solo para clientes',
+      data: null
+    });
+  }
+  next();
+}
+
+/**
+ * Middleware: Verificar que sea empleado
+ */
+export function soloEmpleados(req, res, next) {
+  if (req.usuario?.tipo !== 'EMPLEADO') {
+    return res.status(403).json({
+      status: 'error',
+      message: 'Acceso solo para empleados',
+      data: null
+    });
+  }
+  next();
+}
+
+/**
+ * Middleware: Verificar roles específicos
+ */
+export function requiereRol(...roles) {
+  return (req, res, next) => {
+    if (!roles.includes(req.usuario?.rol)) {
+      return res.status(403).json({
+        status: 'error',
+        message: `Acceso denegado. Roles permitidos: ${roles.join(', ')}`,
+        data: null
+      });
+    }
+    next();
+  };
+}
+
+export default {
+  generarToken,
+  verificarToken,
+  verificarTokenOpcional,
+  soloClientes,
+  soloEmpleados,
+  requiereRol
+};

@@ -134,302 +134,61 @@ export const buscarFacturas = async (req, res, next) => {
  * F5.1 – Crear factura desde carrito (Checkout)
  * POST /api/v1/facturas
  * Body: { id_cliente, id_carrito, id_metodo_pago, id_sucursal }
+ * 
+ * REFACTORIZADO: Usa fn_ingresar_factura() de la BD
  */
 export const crearFactura = async (req, res, next) => {
   try {
     const { id_cliente, id_carrito, id_metodo_pago, id_sucursal } = req.body;
     const id_empleado = req.usuario?.id_empleado || null;
 
-    // Validaciones básicas
-    if (!id_cliente) {
+    // Validación mínima en Node.js
+    if (!id_cliente || !id_carrito || !id_metodo_pago || !id_sucursal) {
       return res.status(400).json({
         status: 'error',
-        message: 'Cliente es requerido',
+        message: 'Parámetros requeridos: id_cliente, id_carrito, id_metodo_pago, id_sucursal',
         data: null
       });
     }
 
-    if (!id_carrito) {
+    // Determinar canal de venta
+    const canal_venta = id_empleado ? 'POS' : 'WEB';
+
+    // 🔷 LLAMAR FUNCIÓN DE BD: fn_ingresar_factura()
+    const resultado = await prisma.$queryRaw`
+      SELECT * FROM fn_ingresar_factura(
+        ${Number(id_cliente)}::INTEGER,
+        ${id_carrito}::UUID,
+        ${Number(id_metodo_pago)}::INTEGER,
+        ${Number(id_sucursal)}::INTEGER,
+        ${canal_venta}::CHAR(3),
+        ${id_empleado}::INTEGER
+      )
+    `;
+
+    if (!resultado || resultado.length === 0) {
       return res.status(400).json({
         status: 'error',
-        message: 'Carrito es requerido',
+        message: 'Error al crear factura',
         data: null
       });
     }
 
-    if (!id_metodo_pago) {
+    const factura = resultado[0];
+
+    // Validar si BD retornó error
+    if (factura.error || factura.mensaje?.includes('Error')) {
       return res.status(400).json({
         status: 'error',
-        message: 'Método de pago es requerido',
+        message: factura.mensaje || 'Error al crear factura',
         data: null
       });
     }
-
-    if (!id_sucursal) {
-      return res.status(400).json({
-        status: 'error',
-        message: 'Sucursal es requerida',
-        data: null
-      });
-    }
-
-    // Validar cliente
-    const cliente = await prisma.cliente.findUnique({
-      where: { id_cliente: Number(id_cliente) }
-    });
-
-    if (!cliente) {
-      return res.status(404).json({
-        status: 'error',
-        message: 'El cliente no existe',
-        data: null
-      });
-    }
-
-    // Validar carrito
-    const carrito = await prisma.carrito.findUnique({
-      where: { id_carrito },
-      include: {
-        carrito_detalle: {
-          include: { producto: true }
-        }
-      }
-    });
-
-    if (!carrito) {
-      return res.status(404).json({
-        status: 'error',
-        message: 'El carrito no existe',
-        data: null
-      });
-    }
-
-    if (carrito.estado !== 'ACT') {
-      return res.status(400).json({
-        status: 'error',
-        message: 'El carrito no está activo',
-        data: null
-      });
-    }
-
-    if (carrito.id_cliente !== Number(id_cliente)) {
-      return res.status(403).json({
-        status: 'error',
-        message: 'El carrito no pertenece a este cliente',
-        data: null
-      });
-    }
-
-    if (carrito.carrito_detalle.length === 0) {
-      return res.status(400).json({
-        status: 'error',
-        message: 'El carrito está vacío',
-        data: null
-      });
-    }
-
-    // Determinar canal
-    const canal = id_empleado ? 'POS' : 'WEB';
-
-    // Validar método de pago
-    const metodoPago = await prisma.metodo_pago.findUnique({
-      where: { id_metodo_pago: Number(id_metodo_pago) }
-    });
-
-    if (!metodoPago) {
-      return res.status(404).json({
-        status: 'error',
-        message: 'El método de pago no existe',
-        data: null
-      });
-    }
-
-    if (metodoPago.estado !== 'ACT') {
-      return res.status(400).json({
-        status: 'error',
-        message: 'El método de pago no está activo',
-        data: null
-      });
-    }
-
-    if (canal === 'WEB' && !metodoPago.disponible_web) {
-      return res.status(400).json({
-        status: 'error',
-        message: 'Método de pago no disponible para compras en línea',
-        data: null
-      });
-    }
-
-    if (canal === 'POS' && !metodoPago.disponible_pos) {
-      return res.status(400).json({
-        status: 'error',
-        message: 'Método de pago no disponible en POS',
-        data: null
-      });
-    }
-
-    // Validar sucursal
-    const sucursal = await prisma.sucursal.findUnique({
-      where: { id_sucursal: Number(id_sucursal) }
-    });
-
-    if (!sucursal) {
-      return res.status(404).json({
-        status: 'error',
-        message: 'La sucursal no existe',
-        data: null
-      });
-    }
-
-    if (!sucursal.activo) {
-      return res.status(400).json({
-        status: 'error',
-        message: 'La sucursal no está activa',
-        data: null
-      });
-    }
-
-    if (canal === 'WEB' && !sucursal.es_punto_retiro) {
-      return res.status(400).json({
-        status: 'error',
-        message: 'La sucursal no está habilitada para retiro',
-        data: null
-      });
-    }
-
-    // Validar productos y calcular totales
-    const detallesValidados = [];
-    let subtotal = 0;
-
-    for (const item of carrito.carrito_detalle) {
-      const producto = item.producto;
-
-      if (producto.estado !== 'ACT') {
-        return res.status(400).json({
-          status: 'error',
-          message: `El producto "${producto.descripcion}" no está disponible`,
-          data: null
-        });
-      }
-
-      if (producto.saldo_actual < item.cantidad) {
-        return res.status(400).json({
-          status: 'error',
-          message: `Stock insuficiente para "${producto.descripcion}". Disponible: ${producto.saldo_actual}`,
-          data: null
-        });
-      }
-
-      const precio_unitario = Number(item.precio_unitario);
-      const cantidad = Number(item.cantidad);
-      const itemSubtotal = cantidad * precio_unitario;
-      subtotal += itemSubtotal;
-
-      detallesValidados.push({
-        id_producto: item.id_producto,
-        cantidad,
-        precio_unitario: parseFloat(precio_unitario.toFixed(3)),
-        subtotal: parseFloat(itemSubtotal.toFixed(3))
-      });
-    }
-
-    // Obtener IVA vigente
-    const iva = await prisma.iva.findFirst({
-      where: {
-        estado: '1',
-        fecha_fin: null
-      }
-    });
-
-    if (!iva) {
-      return res.status(500).json({
-        status: 'error',
-        message: 'No existe un IVA vigente configurado',
-        data: null
-      });
-    }
-
-    const porcentajeIva = Number(iva.porcentaje);
-    const valorIva = parseFloat((subtotal * porcentajeIva / 100).toFixed(3));
-    const total = parseFloat((subtotal + valorIva).toFixed(3));
-
-    // Transacción para crear factura
-    const resultado = await prisma.$transaction(async (tx) => {
-      // Generar ID de factura
-      const ultimaFactura = await tx.factura.findFirst({
-        orderBy: { id_factura: 'desc' },
-        select: { id_factura: true }
-      });
-
-      let siguienteNumero = 1;
-      if (ultimaFactura?.id_factura) {
-        const matches = ultimaFactura.id_factura.match(/\d+/);
-        if (matches) {
-          siguienteNumero = parseInt(matches[0]) + 1;
-        }
-      }
-
-      const id_factura = `FAC${String(siguienteNumero).padStart(6, '0')}`;
-
-      // Crear factura
-      const factura = await tx.factura.create({
-        data: {
-          id_factura,
-          id_canal: canal,
-          id_cliente: Number(id_cliente),
-          id_carrito,
-          id_empleado,
-          id_sucursal: Number(id_sucursal),
-          id_metodo_pago: Number(id_metodo_pago),
-          id_iva: iva.id_iva,
-          subtotal: parseFloat(subtotal.toFixed(3)),
-          total,
-          estado: 'EMI'
-        }
-      });
-
-      // Crear detalles y descontar stock
-      for (const detalle of detallesValidados) {
-        await tx.detalle_factura.create({
-          data: {
-            id_factura,
-            id_producto: detalle.id_producto,
-            cantidad: detalle.cantidad,
-            precio_unitario: detalle.precio_unitario,
-            subtotal: detalle.subtotal
-          }
-        });
-
-        await tx.producto.update({
-          where: { id_producto: detalle.id_producto },
-          data: {
-            saldo_actual: {
-              decrement: detalle.cantidad
-            }
-          }
-        });
-      }
-
-      // Marcar carrito como procesado
-      await tx.carrito.update({
-        where: { id_carrito },
-        data: { estado: 'PRO' }
-      });
-
-      return factura;
-    });
 
     return res.status(201).json({
       status: 'success',
       message: 'Factura creada correctamente',
-      data: {
-        id_factura: resultado.id_factura,
-        fecha_emision: resultado.fecha_emision,
-        subtotal: resultado.subtotal,
-        total: resultado.total,
-        estado: resultado.estado,
-        canal
-      }
+      data: factura
     });
   } catch (err) {
     next(err);
@@ -588,6 +347,8 @@ export const editarFacturaAbierta = async (req, res, next) => {
  * F5.2 – Anular factura
  * POST /api/v1/facturas/:id/anular
  * Body: { motivo?: string }
+ * 
+ * REFACTORIZADO: Usa fn_anular_factura() de la BD
  */
 export const anularFactura = async (req, res, next) => {
   try {
@@ -601,60 +362,36 @@ export const anularFactura = async (req, res, next) => {
       });
     }
 
-    const factura = await prisma.factura.findUnique({
-      where: { id_factura: id },
-      include: {
-        detalle_factura: true
-      }
-    });
+    // 🔷 LLAMAR FUNCIÓN DE BD: fn_anular_factura()
+    const resultado = await prisma.$queryRaw`
+      SELECT * FROM fn_anular_factura(
+        ${id}::VARCHAR(20)
+      )
+    `;
 
-    if (!factura) {
-      return res.status(404).json({
+    if (!resultado || resultado.length === 0) {
+      return res.status(400).json({
         status: 'error',
-        message: 'La factura no existe',
+        message: 'Error al anular factura',
         data: null
       });
     }
 
-    if (factura.estado === 'ANU') {
-      return res.status(409).json({
+    const factura = resultado[0];
+
+    // Validar si BD retornó error
+    if (factura.error || factura.mensaje?.includes('Error')) {
+      return res.status(400).json({
         status: 'error',
-        message: 'La factura ya está anulada',
+        message: factura.mensaje || 'Error al anular factura',
         data: null
       });
     }
-
-    // Transacción: anular y devolver stock
-    const resultado = await prisma.$transaction(async (tx) => {
-      // Devolver stock de cada producto
-      for (const detalle of factura.detalle_factura) {
-        await tx.producto.update({
-          where: { id_producto: detalle.id_producto },
-          data: {
-            saldo_actual: {
-              increment: detalle.cantidad
-            }
-          }
-        });
-      }
-
-      // Anular factura
-      const facturaAnulada = await tx.factura.update({
-        where: { id_factura: id },
-        data: { estado: 'ANU' }
-      });
-
-      return facturaAnulada;
-    });
 
     return res.json({
       status: 'success',
       message: 'Factura anulada correctamente',
-      data: {
-        id_factura: resultado.id_factura,
-        estado: resultado.estado,
-        fecha_emision: resultado.fecha_emision
-      }
+      data: factura
     });
   } catch (err) {
     next(err);

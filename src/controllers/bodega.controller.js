@@ -125,205 +125,71 @@ export const buscarRecepciones = async (req, res, next) => {
 /**
  * POST /api/v1/bodega/recepciones
  * F3.1 - Ingreso de bodega
- * Llama a: sp_recepcion_registrar ⭐ CRÍTICO
+ * 
+ * REFACTORIZADO: Usa fn_ingresar_recepcion() de la BD
  */
 export const registrarRecepcion = async (req, res, next) => {
   try {
-    const { compraId, detalles } = req.body;
+    const { id_compra, detalles } = req.body;
+    const id_empleado = req.usuario?.id_empleado || null;
 
-    // E6: Datos faltantes
-    if (!compraId || !Array.isArray(detalles) || detalles.length === 0) {
+    // Validación mínima en Node.js
+    if (!id_compra || !Array.isArray(detalles) || detalles.length === 0) {
       return res.status(400).json({
         status: 'error',
-        message: 'Orden de compra y productos son requeridos',
+        message: 'id_compra y detalles son requeridos',
         data: null
       });
     }
 
-    // Validar cantidades básicas
+    // Validar estructura básica de detalles
     for (const item of detalles) {
-      if (!item.productoId || item.cantidad === undefined) {
+      if (!item.id_producto || !item.cantidad || item.cantidad <= 0) {
         return res.status(400).json({
           status: 'error',
-          message: 'Datos incompletos en los productos',
-          data: null
-        });
-      }
-
-      if (item.cantidad <= 0) {
-        return res.status(400).json({
-          status: 'error',
-          message: 'Cantidad incorrecta',
+          message: 'Cada detalle debe tener id_producto y cantidad > 0',
           data: null
         });
       }
     }
 
-    // 1. Validar que la orden de compra existe
-    const compra = await prisma.compra.findUnique({
-      where: { id_compra: compraId },
-      include: {
-        detalles: true
-      }
-    });
+    // 🔷 CONVERTIR DETALLES A JSON
+    const detallesJson = JSON.stringify(detalles);
 
-    if (!compra) {
-      return res.status(404).json({
-        status: 'error',
-        message: 'La orden de compra no existe',
-        data: null
-      });
-    }
+    // 🔷 LLAMAR FUNCIÓN DE BD: fn_ingresar_recepcion()
+    const resultado = await prisma.$queryRaw`
+      SELECT * FROM fn_ingresar_recepcion(
+        ${Number(id_compra)}::INTEGER,
+        ${detallesJson}::JSONB,
+        ${id_empleado}::INTEGER
+      )
+    `;
 
-    // 2. Validar que la orden NO está anulada
-    if (compra.estado === 'ANU') {
+    if (!resultado || resultado.length === 0) {
       return res.status(400).json({
         status: 'error',
-        message: 'No se puede recibir una orden anulada',
+        message: 'Error al registrar recepción',
         data: null
       });
     }
 
-    // 3. Validar productos y cantidades
-    const detallesValidados = [];
-    for (const item of detalles) {
-      // Validar que el producto existe en la orden de compra
-      const detalleCompra = compra.detalles.find(d => d.id_producto === item.productoId);
+    const recepcion = resultado[0];
 
-      if (!detalleCompra) {
-        return res.status(404).json({
-          status: 'error',
-          message: `El producto ${item.productoId} no existe en esta orden`,
-          data: null
-        });
-      }
-
-      // Validar cantidad_recibida no exceda (cantidad_solicitada - cantidad_ya_recibida)
-      const cantidadPendiente = detalleCompra.cantidad - (detalleCompra.cantidad_recibida || 0);
-
-      if (item.cantidad > cantidadPendiente) {
-        return res.status(400).json({
-          status: 'error',
-          message: `Cantidad excede lo pendiente para producto ${item.productoId}. Pendiente: ${cantidadPendiente}`,
-          data: null
-        });
-      }
-
-      // Validar que el producto existe
-      const producto = await prisma.producto.findUnique({
-        where: { id_producto: item.productoId }
-      });
-
-      if (!producto) {
-        return res.status(404).json({
-          status: 'error',
-          message: `El producto ${item.productoId} no existe en el sistema`,
-          data: null
-        });
-      }
-
-      detallesValidados.push({
-        ...item,
-        cantidad: Number(item.cantidad),
-        detalleCompraId: detalleCompra.id_detalle_compra
+    // Validar si BD retornó error
+    if (recepcion.error || recepcion.mensaje?.includes('Error')) {
+      return res.status(400).json({
+        status: 'error',
+        message: recepcion.mensaje || 'Error al registrar recepción',
+        data: null
       });
     }
-
-    // 4. Obtener el empleado del req.usuario (si existe)
-    const empleadoId = req.usuario?.id_empleado || null;
-
-    // 5. Usar transacción para registrar recepción
-    const resultado = await prisma.$transaction(async (tx) => {
-      // a. Insertar en recepcion
-      const recepcion = await tx.recepcion.create({
-        data: {
-          id_compra: compraId,
-          id_empleado: empleadoId,
-          descripcion: 'Recepción de mercadería',
-          num_productos: detallesValidados.length,
-          estado: 'ACT'
-        }
-      });
-
-      // b. Para cada detalle: insertar en detalle_recepcion, actualizar cantidad_recibida y sumar ingresos
-      let totalRecibido = 0;
-      for (const detalle of detallesValidados) {
-        // Insertar en detalle_recepcion
-        await tx.detalle_recepcion.create({
-          data: {
-            id_recepcion: recepcion.id_recepcion,
-            id_producto: detalle.productoId,
-            cantidad: detalle.cantidad
-          }
-        });
-
-        // Actualizar cantidad_recibida en detalle_compra
-        await tx.detalle_compra.update({
-          where: { id_detalle_compra: detalle.detalleCompraId },
-          data: {
-            cantidad_recibida: {
-              increment: detalle.cantidad
-            }
-          }
-        });
-
-        // Incrementar campo 'ingresos' del producto
-        await tx.producto.update({
-          where: { id_producto: detalle.productoId },
-          data: {
-            ingresos: {
-              increment: detalle.cantidad
-            }
-          }
-        });
-
-        totalRecibido += detalle.cantidad;
-      }
-
-      // c. Actualizar estado de la orden de compra
-      // Obtener el estado actualizado de todos los detalles
-      const detallesActualizados = await tx.detalle_compra.findMany({
-        where: { id_compra: compraId }
-      });
-
-      let nuevoEstado = 'PEN'; // Por defecto pendiente
-
-      // Verificar si todos están completos o si hay parciales
-      const todosCompletos = detallesActualizados.every(
-        d => d.cantidad_recibida >= d.cantidad
-      );
-
-      const algunoRecibido = detallesActualizados.some(
-        d => d.cantidad_recibida > 0
-      );
-
-      if (todosCompletos) {
-        nuevoEstado = 'CER'; // Cerrada
-      } else if (algunoRecibido) {
-        nuevoEstado = 'PAR'; // Parcial
-      }
-
-      // Actualizar la orden
-      const compraActualizada = await tx.compra.update({
-        where: { id_compra: compraId },
-        data: { estado: nuevoEstado }
-      });
-
-      return { recepcion, compraActualizada };
-    });
 
     return res.status(201).json({
       status: 'success',
-      message: 'Ingreso de bodega registrado. Inventario actualizado.',
-      data: {
-        id_recepcion: resultado.recepcion.id_recepcion,
-        id_compra: resultado.recepcion.id_compra,
-        productos_recibidos: detallesValidados.length,
-        nuevo_estado_orden: resultado.compraActualizada.estado
-      }
+      message: 'Recepción registrada exitosamente',
+      data: recepcion
     });
   } catch (err) {
-    // E1: Desconexión
     next(err);
   }
 };

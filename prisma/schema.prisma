@@ -254,22 +254,22 @@ model metodo_pago {
 }
 
 model producto {
-  id_producto                                        String                 @id @default(dbgenerated("('P'::text || lpad((nextval('seq_producto'::regclass))::text, 6, '0'::text))")) @db.VarChar(7)
+  id_producto                                        String              @id @default(dbgenerated("('P'::text || lpad((nextval('seq_producto'::regclass))::text, 6, '0'::text))")) @db.VarChar(7)
   descripcion                                        String
   id_prod_categoria                                  Int?
   id_marca                                           Int?
-  id_um_compra                                       String                 @db.Char(3)
-  id_um_venta                                        String                 @db.Char(3)
-  costo_promedio                                     Decimal?               @default(0) @db.Decimal(14, 3)
-  precio_venta                                       Decimal                @db.Decimal(14, 3)
-  saldo_inicial                                      Int?                   @default(0)
+  id_um_compra                                       String              @db.Char(3)
+  id_um_venta                                        String              @db.Char(3)
+  costo_promedio                                     Decimal?            @default(0) @db.Decimal(14, 3)
+  precio_venta                                       Decimal             @db.Decimal(14, 3)
+  saldo_inicial                                      Int?                @default(0)
   saldo_actual                                       Int?
-  volumen                                            Decimal?               @db.Decimal(10, 2)
-  alcohol_vol                                        Decimal?               @db.Decimal(4, 2)
+  volumen                                            Decimal?            @db.Decimal(10, 2)
+  alcohol_vol                                        Decimal?            @db.Decimal(4, 2)
   origen                                             String?
   notas_cata                                         String?
-  estado                                             String?                @default("ACT") @db.Char(3)
-  codigo_barras                                      String?                @unique(map: "idx_producto_codigo_barras") @db.VarChar(50)
+  estado                                             String?             @default("ACT") @db.Char(3)
+  codigo_barras                                      String?             @unique(map: "idx_producto_codigo_barras") @db.VarChar(50)
   imagen_url                                         String?
   carrito_detalle                                    carrito_detalle[]
   detalle_ajuste                                     detalle_ajuste[]
@@ -277,12 +277,11 @@ model producto {
   detalle_factura                                    detalle_factura[]
   detalle_promocion                                  detalle_promocion[]
   detalle_recepcion                                  detalle_recepcion[]
-  categoria_producto                                 categoria_producto?    @relation(fields: [id_prod_categoria], references: [id_prod_categoria], onDelete: NoAction, onUpdate: NoAction, map: "producto_id_categoria_fkey")
-  marca                                              marca?                 @relation(fields: [id_marca], references: [id_marca], onDelete: NoAction, onUpdate: NoAction)
-  unidad_medida_producto_id_um_compraTounidad_medida unidad_medida          @relation("producto_id_um_compraTounidad_medida", fields: [id_um_compra], references: [id_unidad_medida], onDelete: NoAction, onUpdate: NoAction)
-  unidad_medida_producto_id_um_ventaTounidad_medida  unidad_medida          @relation("producto_id_um_ventaTounidad_medida", fields: [id_um_venta], references: [id_unidad_medida], onDelete: NoAction, onUpdate: NoAction)
+  categoria_producto                                 categoria_producto? @relation(fields: [id_prod_categoria], references: [id_prod_categoria], onDelete: NoAction, onUpdate: NoAction, map: "producto_id_categoria_fkey")
+  marca                                              marca?              @relation(fields: [id_marca], references: [id_marca], onDelete: NoAction, onUpdate: NoAction)
+  unidad_medida_producto_id_um_compraTounidad_medida unidad_medida       @relation("producto_id_um_compraTounidad_medida", fields: [id_um_compra], references: [id_unidad_medida], onDelete: NoAction, onUpdate: NoAction)
+  unidad_medida_producto_id_um_ventaTounidad_medida  unidad_medida       @relation("producto_id_um_ventaTounidad_medida", fields: [id_um_venta], references: [id_unidad_medida], onDelete: NoAction, onUpdate: NoAction)
   producto_favorito                                  producto_favorito[]
-  proveedor_x_producto                               proveedor_x_producto[]
 }
 
 model producto_favorito {
@@ -316,29 +315,16 @@ model promocion {
 }
 
 model proveedor {
-  id_proveedor         String                 @id @default(dbgenerated("('PR'::text || lpad((nextval('seq_proveedor'::regclass))::text, 5, '0'::text))")) @db.VarChar(7)
-  ruc_cedula           String                 @unique @db.VarChar(13)
-  razon_social         String
-  telefono             String?
-  email                String?
-  direccion            String?
-  id_ciudad            String                 @db.Char(3)
-  estado               String?                @default("ACT") @db.Char(3)
-  compra               compra[]
-  ciudad               ciudad                 @relation(fields: [id_ciudad], references: [id_ciudad], onDelete: NoAction, onUpdate: NoAction)
-  proveedor_x_producto proveedor_x_producto[]
-}
-
-model proveedor_x_producto {
-  id_proveedor  String    @db.VarChar(7)
-  id_producto   String    @db.VarChar(7)
-  precio_compra Decimal?  @db.Decimal(14, 3)
-  stock         Int?
-  estado        Boolean?  @default(true)
-  producto      producto  @relation(fields: [id_producto], references: [id_producto], onDelete: NoAction, onUpdate: NoAction, map: "proveedor_producto_id_producto_fkey")
-  proveedor     proveedor @relation(fields: [id_proveedor], references: [id_proveedor], onDelete: NoAction, onUpdate: NoAction, map: "proveedor_producto_id_proveedor_fkey")
-
-  @@id([id_proveedor, id_producto], map: "proveedor_producto_pkey")
+  id_proveedor String   @id @default(dbgenerated("('PR'::text || lpad((nextval('seq_proveedor'::regclass))::text, 5, '0'::text))")) @db.VarChar(7)
+  ruc_cedula   String   @unique @db.VarChar(13)
+  razon_social String
+  telefono     String?
+  email        String?
+  direccion    String?
+  id_ciudad    String   @db.Char(3)
+  estado       String?  @default("ACT") @db.Char(3)
+  compra       compra[]
+  ciudad       ciudad   @relation(fields: [id_ciudad], references: [id_ciudad], onDelete: NoAction, onUpdate: NoAction)
 }
 
 model recepcion {

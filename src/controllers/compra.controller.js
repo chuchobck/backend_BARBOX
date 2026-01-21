@@ -12,11 +12,11 @@ export const listarCompras = async (req, res, next) => {
     const compras = await prisma.compra.findMany({
       include: {
         proveedor: true,
-        detalles: {
+        detalle_compra: {
           include: { producto: true }
         }
       },
-      orderBy: { fecha_creacion: 'desc' }
+      orderBy: { fecha: 'desc' }
     });
 
     return res.json({
@@ -36,9 +36,9 @@ export const listarCompras = async (req, res, next) => {
  */
 export const obtenerCompra = async (req, res, next) => {
   try {
-    const id = Number(req.params.id);
+    const id = req.params.id; // Es String (VARCHAR)
 
-    if (isNaN(id)) {
+    if (!id) {
       return res.status(400).json({
         status: 'error',
         message: 'ID inválido',
@@ -50,7 +50,7 @@ export const obtenerCompra = async (req, res, next) => {
       where: { id_compra: id },
       include: {
         proveedor: true,
-        detalles: {
+        detalle_compra: {
           include: { producto: true }
         }
       }
@@ -95,10 +95,10 @@ export const buscarCompras = async (req, res, next) => {
     const compras = await prisma.compra.findMany({
       where: {
         AND: [
-          proveedor ? { proveedorId: Number(proveedor) } : {},
+          proveedor ? { id_proveedor: proveedor } : {},
           estado ? { estado } : {},
-          fechaDesde ? { fecha_creacion: { gte: new Date(fechaDesde) } } : {},
-          fechaHasta ? { fecha_creacion: { lte: new Date(fechaHasta) } } : {}
+          fechaDesde ? { fecha: { gte: new Date(fechaDesde) } } : {},
+          fechaHasta ? { fecha: { lte: new Date(fechaHasta) } } : {}
         ]
       },
       include: { proveedor: true }
@@ -130,10 +130,10 @@ export const buscarCompras = async (req, res, next) => {
  */
 export const crearCompra = async (req, res, next) => {
   try {
-    const { proveedorId, detalles } = req.body;
+    const { id_proveedor, detalles } = req.body;
 
     // E5: Datos obligatorios
-    if (!proveedorId || !Array.isArray(detalles) || detalles.length === 0) {
+    if (!id_proveedor || !Array.isArray(detalles) || detalles.length === 0) {
       return res.status(400).json({
         status: 'error',
         message: 'Proveedor y al menos un producto son requeridos',
@@ -143,7 +143,7 @@ export const crearCompra = async (req, res, next) => {
 
     // Validación básica de detalles
     for (const item of detalles) {
-      if (!item.productoId) {
+      if (!item.id_producto) {
         return res.status(400).json({
           status: 'error',
           message: 'Producto inexistente',
@@ -162,7 +162,7 @@ export const crearCompra = async (req, res, next) => {
 
     // 1. Validar que el proveedor existe y está activo
     const proveedor = await prisma.proveedor.findUnique({
-      where: { id_proveedor: Number(proveedorId) }
+      where: { id_proveedor: id_proveedor }
     });
 
     if (!proveedor) {
@@ -185,13 +185,13 @@ export const crearCompra = async (req, res, next) => {
     const productosValidados = [];
     for (const item of detalles) {
       const producto = await prisma.producto.findUnique({
-        where: { id_producto: item.productoId }
+        where: { id_producto: item.id_producto }
       });
 
       if (!producto) {
         return res.status(404).json({
           status: 'error',
-          message: `El producto ${item.productoId} no existe`,
+          message: `El producto ${item.id_producto} no existe`,
           data: null
         });
       }
@@ -199,7 +199,7 @@ export const crearCompra = async (req, res, next) => {
       if (item.costo_unitario === undefined || item.costo_unitario <= 0) {
         return res.status(400).json({
           status: 'error',
-          message: `Costo unitario inválido para producto ${item.productoId}`,
+          message: `Costo unitario inválido para producto ${item.id_producto}`,
           data: null
         });
       }
@@ -211,68 +211,31 @@ export const crearCompra = async (req, res, next) => {
       });
     }
 
-    // 3. Obtener el IVA actual (fecha_fin = null)
-    const iva = await prisma.iva.findFirst({
-      where: { fecha_fin: null }
-    });
-
-    if (!iva) {
-      return res.status(500).json({
-        status: 'error',
-        message: 'No existe un porcentaje de IVA configurado',
-        data: null
-      });
-    }
-
-    const porcentajeIVA = Number(iva.porcentaje) / 100;
-
-    // 4. Calcular subtotales e IVA para cada detalle
-    let subtotal_total = 0;
+    // 3. Calcular subtotales para cada detalle
+    let subtotalTotal = 0;
     const detallesConCalculos = productosValidados.map((item) => {
       const subtotal = item.cantidad * item.costo_unitario;
-      const iva_detalle = subtotal * porcentajeIVA;
-      subtotal_total += subtotal;
+      subtotalTotal += subtotal;
 
       return {
         ...item,
-        subtotal,
-        iva_detalle
+        subtotal
       };
     });
 
-    // Calcular totales
-    const iva_total = subtotal_total * porcentajeIVA;
-    const total = subtotal_total + iva_total;
+    // Calcular total (el schema no tiene IVA en compra)
+    const total = subtotalTotal;
 
-    // 5. Usar transacción para crear orden y detalles
+    // 4. Usar transacción para crear orden y detalles
     const resultado = await prisma.$transaction(async (tx) => {
-      // Generar ID correlativo (COM#### donde #### es el siguiente número)
-      const ultimaCompra = await tx.compra.findFirst({
-        orderBy: { id_compra: 'desc' },
-        select: { id_compra: true }
-      });
-
-      let siguienteNumero = 1;
-      if (ultimaCompra && ultimaCompra.id_compra) {
-        // Extraer el número de la última compra (ej: COM0001 -> 1)
-        const matches = ultimaCompra.id_compra.match(/\d+/);
-        if (matches) {
-          siguienteNumero = parseInt(matches[0]) + 1;
-        }
-      }
-
-      const id_compra = `COM${String(siguienteNumero).padStart(4, '0')}`;
-
+      // El id_compra se genera automáticamente por la BD (dbgenerated)
       // Crear la orden de compra
       const compra = await tx.compra.create({
         data: {
-          id_compra,
-          proveedorId: Number(proveedorId),
-          subtotal_total: parseFloat(subtotal_total.toFixed(2)),
-          iva_total: parseFloat(iva_total.toFixed(2)),
-          total: parseFloat(total.toFixed(2)),
-          estado: 'PEN', // Pendiente
-          ivaId: iva.id_iva
+          id_proveedor: id_proveedor,
+          subtotal: subtotalTotal,
+          total: total,
+          estado: 'PEN' // Pendiente
         }
       });
 
@@ -281,28 +244,30 @@ export const crearCompra = async (req, res, next) => {
         await tx.detalle_compra.create({
           data: {
             id_compra: compra.id_compra,
-            id_producto: detalle.productoId,
+            id_producto: detalle.id_producto,
             cantidad: detalle.cantidad,
-            costo_unitario: parseFloat(detalle.costo_unitario.toFixed(2)),
-            subtotal: parseFloat(detalle.subtotal.toFixed(2)),
-            iva: parseFloat(detalle.iva_detalle.toFixed(2))
+            costo_unitario: detalle.costo_unitario,
+            subtotal: detalle.subtotal
           }
         });
       }
 
-      return compra;
+      // Retornar compra con detalles
+      return await tx.compra.findUnique({
+        where: { id_compra: compra.id_compra },
+        include: {
+          proveedor: true,
+          detalle_compra: {
+            include: { producto: true }
+          }
+        }
+      });
     });
 
     return res.status(201).json({
       status: 'success',
       message: 'Orden de compra creada correctamente',
-      data: {
-        id_compra: resultado.id_compra,
-        subtotal_total: resultado.subtotal_total,
-        iva_total: resultado.iva_total,
-        total: resultado.total,
-        estado: resultado.estado
-      }
+      data: resultado
     });
   } catch (err) {
     // E1: Desconexión
@@ -339,7 +304,7 @@ export const actualizarCompra = async (req, res, next) => {
 
     // Validación básica de detalles
     for (const item of detalles) {
-      if (!item.productoId) {
+      if (!item.id_producto) {
         return res.status(400).json({
           status: 'error',
           message: 'Producto inexistente',
@@ -389,13 +354,13 @@ export const actualizarCompra = async (req, res, next) => {
     const productosValidados = [];
     for (const item of detalles) {
       const producto = await prisma.producto.findUnique({
-        where: { id_producto: item.productoId }
+        where: { id_producto: item.id_producto }
       });
 
       if (!producto) {
         return res.status(404).json({
           status: 'error',
-          message: `El producto ${item.productoId} no existe`,
+          message: `El producto ${item.id_producto} no existe`,
           data: null
         });
       }
@@ -407,44 +372,25 @@ export const actualizarCompra = async (req, res, next) => {
       });
     }
 
-    // 3. Obtener el IVA actual
-    const iva = await prisma.iva.findFirst({
-      where: { fecha_fin: null }
-    });
-
-    if (!iva) {
-      return res.status(500).json({
-        status: 'error',
-        message: 'No existe un porcentaje de IVA configurado',
-        data: null
-      });
-    }
-
-    const porcentajeIVA = Number(iva.porcentaje) / 100;
-
     // Calcular nuevos totales
-    let subtotal_total = 0;
+    let subtotalTotal = 0;
     const detallesConCalculos = productosValidados.map((item) => {
       const subtotal = item.cantidad * item.costo_unitario;
-      const iva_detalle = subtotal * porcentajeIVA;
-      subtotal_total += subtotal;
+      subtotalTotal += subtotal;
 
       return {
         ...item,
-        subtotal,
-        iva_detalle
+        subtotal
       };
     });
 
-    const iva_total = subtotal_total * porcentajeIVA;
-    const total = subtotal_total + iva_total;
+    const total = subtotalTotal;
 
     // 3. Usar transacción para actualizar
     const resultado = await prisma.$transaction(async (tx) => {
-      // a. Marcar detalles anteriores como inactivos (eliminación lógica)
-      await tx.detalle_compra.updateMany({
-        where: { id_compra },
-        data: { estado: 'INA' }
+      // a. Eliminar detalles anteriores
+      await tx.detalle_compra.deleteMany({
+        where: { id_compra }
       });
 
       // b. Insertar los nuevos detalles
@@ -452,26 +398,24 @@ export const actualizarCompra = async (req, res, next) => {
         await tx.detalle_compra.create({
           data: {
             id_compra,
-            id_producto: detalle.productoId,
+            id_producto: detalle.id_producto,
             cantidad: detalle.cantidad,
-            costo_unitario: parseFloat(detalle.costo_unitario.toFixed(2)),
-            subtotal: parseFloat(detalle.subtotal.toFixed(2)),
-            iva: parseFloat(detalle.iva_detalle.toFixed(2))
+            costo_unitario: detalle.costo_unitario,
+            subtotal: detalle.subtotal
           }
         });
       }
 
-      // c. y d. Actualizar la cabecera de compra (sin cambiar el estado)
+      // c. Actualizar la cabecera de compra
       const compraActualizada = await tx.compra.update({
         where: { id_compra },
         data: {
-          subtotal_total: parseFloat(subtotal_total.toFixed(2)),
-          iva_total: parseFloat(iva_total.toFixed(2)),
-          total: parseFloat(total.toFixed(2))
-          // estado sigue siendo 'PEN'
+          subtotal: subtotalTotal,
+          total: total
         },
         include: {
-          detalles: {
+          proveedor: true,
+          detalle_compra: {
             include: { producto: true }
           }
         }
@@ -483,14 +427,7 @@ export const actualizarCompra = async (req, res, next) => {
     return res.json({
       status: 'success',
       message: 'Orden de compra actualizada correctamente',
-      data: {
-        id_compra: resultado.id_compra,
-        subtotal_total: resultado.subtotal_total,
-        iva_total: resultado.iva_total,
-        total: resultado.total,
-        estado: resultado.estado,
-        detalles: resultado.detalles
-      }
+      data: resultado
     });
   } catch (err) {
     next(err);

@@ -130,70 +130,70 @@ export const buscarFacturas = async (req, res, next) => {
   }
 };
 
-/**
- * F5.1 – Crear factura desde carrito (Checkout)
- * POST /api/v1/facturas
- * Body: { id_cliente, id_carrito, id_metodo_pago, id_sucursal }
- * 
- * REFACTORIZADO: Usa fn_ingresar_factura() de la BD
- */
-export const crearFactura = async (req, res, next) => {
-  try {
-    const { id_cliente, id_carrito, id_metodo_pago, id_sucursal } = req.body;
-    const id_empleado = req.usuario?.id_empleado || null;
+  /**
+   * F5.1 – Crear factura desde carrito (Checkout)
+   * POST /api/v1/facturas
+   * Body: { id_cliente, id_carrito, id_metodo_pago, id_sucursal }
+   * 
+   * REFACTORIZADO: Usa fn_ingresar_factura() de la BD
+   */
+  export const crearFactura = async (req, res, next) => {
+    try {
+      const { id_cliente, id_carrito, id_metodo_pago, id_sucursal } = req.body;
+      const id_empleado = req.usuario?.id_empleado || null;
 
-    // Validación mínima en Node.js
-    if (!id_cliente || !id_carrito || !id_metodo_pago || !id_sucursal) {
-      return res.status(400).json({
-        status: 'error',
-        message: 'Parámetros requeridos: id_cliente, id_carrito, id_metodo_pago, id_sucursal',
-        data: null
+      // Validación mínima en Node.js
+      if (!id_cliente || !id_carrito || !id_metodo_pago || !id_sucursal) {
+        return res.status(400).json({
+          status: 'error',
+          message: 'Parámetros requeridos: id_cliente, id_carrito, id_metodo_pago, id_sucursal',
+          data: null
+        });
+      }
+
+      // Determinar canal de venta
+      const canal_venta = id_empleado ? 'POS' : 'WEB';
+
+      // 🔷 LLAMAR FUNCIÓN DE BD: fn_ingresar_factura()
+      const resultado = await prisma.$queryRaw`
+        SELECT * FROM fn_ingresar_factura(
+          ${Number(id_cliente)}::INTEGER,
+          ${id_carrito}::UUID,
+          ${Number(id_metodo_pago)}::INTEGER,
+          ${Number(id_sucursal)}::INTEGER,
+          ${canal_venta}::CHAR(3),
+          ${id_empleado}::INTEGER
+        )
+      `;
+
+      if (!resultado || resultado.length === 0) {
+        return res.status(400).json({
+          status: 'error',
+          message: 'Error al crear factura',
+          data: null
+        });
+      }
+
+      const factura = resultado[0];
+
+      // Validar si BD retornó error
+      if (factura.error || factura.mensaje?.includes('Error')) {
+        return res.status(400).json({
+          status: 'error',
+          message: factura.mensaje || 'Error al crear factura',
+          data: null
+        });
+      }
+
+      return res.status(201).json({
+        status: 'success',
+        message: 'Factura creada correctamente',
+        data: factura
       });
+    } catch (err) {
+      next(err);
     }
-
-    // Determinar canal de venta
-    const canal_venta = id_empleado ? 'POS' : 'WEB';
-
-    // 🔷 LLAMAR FUNCIÓN DE BD: fn_ingresar_factura()
-    const resultado = await prisma.$queryRaw`
-      SELECT * FROM fn_ingresar_factura(
-        ${Number(id_cliente)}::INTEGER,
-        ${id_carrito}::UUID,
-        ${Number(id_metodo_pago)}::INTEGER,
-        ${Number(id_sucursal)}::INTEGER,
-        ${canal_venta}::CHAR(3),
-        ${id_empleado}::INTEGER
-      )
-    `;
-
-    if (!resultado || resultado.length === 0) {
-      return res.status(400).json({
-        status: 'error',
-        message: 'Error al crear factura',
-        data: null
-      });
-    }
-
-    const factura = resultado[0];
-
-    // Validar si BD retornó error
-    if (factura.error || factura.mensaje?.includes('Error')) {
-      return res.status(400).json({
-        status: 'error',
-        message: factura.mensaje || 'Error al crear factura',
-        data: null
-      });
-    }
-
-    return res.status(201).json({
-      status: 'success',
-      message: 'Factura creada correctamente',
-      data: factura
-    });
-  } catch (err) {
-    next(err);
-  }
-};
+  };
 
 /**
  * F5.3 – Modificar factura abierta (solo estado EMI)

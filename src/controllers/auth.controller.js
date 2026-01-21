@@ -10,6 +10,8 @@ export const login = async (req, res, next) => {
   try {
     let { usuario: usuarioInput, password } = req.body;
 
+    console.log('📝 Login attempt:', { usuario: usuarioInput, hasPassword: !!password });
+
     if (!usuarioInput || !password) {
       return res.status(400).json({
         status: 'error',
@@ -19,6 +21,8 @@ export const login = async (req, res, next) => {
     }
 
     const usuarioNormalized = usuarioInput.toLowerCase().trim();
+
+    console.log('🔍 Buscando usuario:', usuarioNormalized);
 
     // Buscar usuario con sus relaciones
     const usuario = await prisma.usuario.findUnique({
@@ -32,6 +36,7 @@ export const login = async (req, res, next) => {
     });
 
     if (!usuario || usuario.estado !== 'ACT') {
+      console.log('❌ Usuario no encontrado o inactivo');
       return res.status(401).json({
         status: 'error',
         message: 'Credenciales inválidas',
@@ -40,6 +45,7 @@ export const login = async (req, res, next) => {
     }
 
     if (!usuario.password_hash) {
+      console.log('❌ Usuario sin password_hash');
       return res.status(403).json({
         status: 'error',
         message: 'Usuario no habilitado para login web',
@@ -50,12 +56,15 @@ export const login = async (req, res, next) => {
     const passwordValido = await bcrypt.compare(password, usuario.password_hash);
 
     if (!passwordValido) {
+      console.log('❌ Contraseña inválida');
       return res.status(401).json({
         status: 'error',
         message: 'Credenciales inválidas',
         data: null
       });
     }
+
+    console.log('✅ Login exitoso para:', usuarioNormalized);
 
     // Actualizar último acceso
     await prisma.usuario.update({

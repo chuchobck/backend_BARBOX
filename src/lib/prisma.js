@@ -10,7 +10,14 @@ const prismaForEnv = (() => {
   }
   // En otros entornos no-producción, intentar inicializar; si falla, usar stub
   try {
-    return globalForPrisma.prisma ?? new PrismaClient({ log: ['error'] });
+    return globalForPrisma.prisma ?? new PrismaClient({ 
+      log: ['error'],
+      datasources: {
+        db: {
+          url: process.env.DATABASE_URL
+        }
+      }
+    });
   } catch (e) {
     if (process.env.NODE_ENV !== 'production') {
       return new Proxy({}, { get() { throw new Error('Prisma no disponible. Evite acceso a DB en pruebas sin generar cliente.'); } });

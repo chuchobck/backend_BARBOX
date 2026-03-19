@@ -13,12 +13,16 @@ export const listarCategorias = async (req, res, next) => {
     console.log('📋 Iniciando listarCategorias...');
     
     const categorias = await prisma.categoria_producto.findMany({
+      where: {
+        activo: true  // ✅ Solo categorías activas
+      },
       orderBy: { nombre: 'asc' },
       include: {
         _count: {
           select: { producto: true, marca: true }
         }
-      }
+      },
+      distinct: ['nombre']  // ✅ Eliminar duplicados por nombre
     });
 
     console.log(`✅ Categorías encontradas: ${categorias.length}`);
